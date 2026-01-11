@@ -1,6 +1,8 @@
 package com.unirfp.ceropapeleo
 
 import android.os.Bundle
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +17,10 @@ import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        val myWebView: WebView = findViewById(R.id.webview)
+        myWebView.settings.javaScriptEnabled = true
+        myWebView.webViewClient = WebViewClient()
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
