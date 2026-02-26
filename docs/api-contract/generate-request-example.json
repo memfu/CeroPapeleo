@@ -1,0 +1,55 @@
+{
+  "certificateType": "LAST_WILL",
+  "applicant": {
+    "documentId": "12345678A",
+    "firstSurname": "Pérez",
+    "secondSurname": "García",
+    "name": "Juan",
+    "address": {
+      "street": "Calle Mayor",
+      "number": "1",
+      "staircase": "A",
+      "floor": "3",
+      "door": "B",
+      "postalCode": "28001",
+      "city": "Madrid",
+      "province": "Madrid",
+      "country": "España"
+    },
+    "contact": {
+      "mobilePhone": "600123456",
+      "email": "juan@email.com"
+    }
+  },
+  "destination": {
+    "country": "España",
+    "authorityOrEntity": "Ministerio de Justicia"
+  },
+  "payment": {
+    "amountEur": 3.78,
+    "paymentMethod": "CASH"
+  },
+  "signature": {
+    "place": "Madrid",
+    "date": "2026-02-26",
+    "postalDeliveryAuthorized": true
+  },
+  "deathRelatedDetails": {
+    "deceased": {
+      "documentId": "12345678A",
+      "firstSurname": "Pérez",
+      "secondSurname": "García",
+      "name": "Juan",
+      "birthDate": "1960-01-01",
+      "birthCity": "Madrid",
+      "deathDate": "2025-12-01",
+      "deathCity": "Madrid"
+    },
+    "lastWillExtra": {
+      "willDate": "2020-06-01",
+      "notary": "Nombre Notario",
+      "grantPlace": "Madrid",
+      "spousesFullName": "Nombre Apellidos Cónyuge/s"
+    }
+  }
+}
