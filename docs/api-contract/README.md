@@ -30,6 +30,6 @@ Conditional rules:
 
 Extra Info:
 - “destination" optional (required only when applicable).
-- paymentMethod allows just "CASH" or "DIRECT_DEBIT"
+- paymentMethod: CASH | DIRECT_DEBIT
 - payment.customerAccount required only if paymentMethod == DIRECT_DEBIT. 
 - Dates: YYYY-MM-DD, timestamps: YYYY-MM-DDTHH:MM:SSZ.
