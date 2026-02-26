@@ -1,0 +1,41 @@
+{
+  "errorStructure": {
+    "status": "ERROR",
+    "errorCode": "STRING",
+    "message": "STRING",
+    "errors": [
+      {
+        "field": "STRING",
+        "message": "STRING"
+      }
+    ],
+    "timestamp": "YYYY-MM-DDTHH:MM:SSZ"
+  },
+
+  "examples": {
+    "validationError400": {
+      "status": "ERROR",
+      "errorCode": "VALIDATION_ERROR",
+      "message": "Request validation failed",
+      "errors": [
+        {
+          "field": "applicant.documentId",
+          "message": "Document ID is required"
+        },
+        {
+          "field": "payment.amountEur",
+          "message": "Amount must be greater than 0"
+        }
+      ],
+      "timestamp": "2026-02-26T10:35:00Z"
+    },
+
+    "internalServerError500": {
+      "status": "ERROR",
+      "errorCode": "INTERNAL_SERVER_ERROR",
+      "message": "Unexpected server error",
+      "errors": null,
+      "timestamp": "2026-02-26T10:40:00Z"
+    }
+  }
+}
