@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CeroPapeleo"
 include(":app")
- 
+include(":backend") // <-- AÑADIDA ESTA LÍNEA
