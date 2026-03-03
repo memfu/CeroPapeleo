@@ -14,6 +14,17 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts
+import java.io.ByteArrayOutputStream
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.ContentDisposition
 
 @Serializable
 data class SystemStatus(val status: String, val message: String)
@@ -32,7 +43,7 @@ fun Application.module() {
 
         // --- 1. ENDPOINT DE BIENVENIDA (Para ver en el navegador) ---
         get("/") {
-            call.respondText("¡Servidor de CeroPapeleo operativo! 🚀\n\nEl backend está listo para recibir peticiones POST en /generate")
+            call.respondText("PRUEBA DE CONEXIÓN: OK ✅")
         }
 
         // --- 2. ENDPOINT DE SALUD
@@ -57,17 +68,20 @@ fun Application.module() {
                     )
                     return@post
                 }
+                // --- NUEVA LÓGICA: GENERACIÓN REAL DEL PDF ---
+                val pdfBytes = createDummyPdf(request)
 
-                // Si pasa la validación (Simulación de éxito)
-                call.respond(
-                    HttpStatusCode.Created, mapOf(
-                        "status" to "SUCCESS",
-                        "message" to "PDF generado correctamente"
-                    )
+                // Configuramos las cabeceras para que el cliente sepa que es un PDF
+                call.response.header(
+                    HttpHeaders.ContentDisposition,
+                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "Modelo790_Borrador.pdf").toString()
                 )
 
+                // Respondemos con los bytes del PDF
+                call.respondBytes(pdfBytes, ContentType.Application.Pdf, HttpStatusCode.Created)
+
             } catch (e: Exception) {
-                // Error 500 estándar
+                e.printStackTrace()
                 call.respond(
                     HttpStatusCode.InternalServerError, ErrorResponse(
                         errorCode = "INTERNAL_SERVER_ERROR",
@@ -78,4 +92,46 @@ fun Application.module() {
             }
         }
     }
+}
+/**
+ * Función que genera el contenido del PDF.
+ * Se define fuera de module() para mantener el código organizado.
+ */
+private fun createDummyPdf(request: com.ceropapeleo.backend.dto.GenerateRequest): ByteArray {
+    val outputStream = java.io.ByteArrayOutputStream()
+
+    org.apache.pdfbox.pdmodel.PDDocument().use { document ->
+        val page = org.apache.pdfbox.pdmodel.PDPage()
+        document.addPage(page)
+
+        org.apache.pdfbox.pdmodel.PDPageContentStream(document, page).use { content ->
+            // Usamos fuentes estándar de PDFBox 3.x
+            val fontTitle = org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA_BOLD)
+            val fontBody = org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA)
+
+            content.beginText()
+            content.setFont(fontTitle, 20f)
+            content.newLineAtOffset(50f, 750f)
+            content.showText("CeroPapeleo - Borrador de Solicitud")
+            content.endText()
+
+            content.beginText()
+            content.setFont(fontBody, 12f)
+            content.newLineAtOffset(50f, 700f)
+            content.setLeading(15f)
+
+            content.showText("Solicitante: ${request.applicant.name} ${request.applicant.surname1}")
+            content.newLine()
+            content.showText("DNI/NIE: ${request.applicant.documentId}")
+            content.newLine()
+            content.showText("Tramite: ${request.certificateType}")
+            content.newLine()
+
+            val fecha = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+            content.showText("Fecha de generacion: $fecha")
+            content.endText()
+        }
+        document.save(outputStream)
+    }
+    return outputStream.toByteArray()
 }

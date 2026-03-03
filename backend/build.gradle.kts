@@ -24,6 +24,9 @@ dependencies {
     // Logs (Para ver qué pasa en la consola)
     implementation("io.ktor:ktor-server-call-logging-jvm")
     implementation("ch.qos.logback:logback-classic:1.4.12")
+
+    // Motor de generación del PDF
+    implementation("org.apache.pdfbox:pdfbox:3.0.1")
 }
 
 application {
