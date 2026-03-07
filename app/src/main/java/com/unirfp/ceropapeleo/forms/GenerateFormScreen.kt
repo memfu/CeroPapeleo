@@ -1,5 +1,6 @@
 package com.unirfp.ceropapeleo.forms
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,19 +11,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavController
 import kotlinx.coroutines.launch
-
-import com.ceropapeleo.ui.forms.*
 import com.unirfp.ceropapeleo.api.ApiClient
-import com.unirfp.ceropapeleo.utils.DownloadUtils
+import com.unirfp.ceropapeleo.ui.forms.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GenerateFormScreen() {
+fun GenerateFormScreen(navController: NavController) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Estado del formulario
     var formState by remember { mutableStateOf(GenerateRequest()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -31,7 +32,9 @@ fun GenerateFormScreen() {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Nuevo Formulario 790-006") })
+            TopAppBar(
+                title = { Text("Nuevo Formulario 790-006") }
+            )
         }
     ) { padding ->
 
@@ -44,7 +47,10 @@ fun GenerateFormScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
 
-            Text("Tipo de Certificado", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Tipo de Certificado",
+                style = MaterialTheme.typography.titleMedium
+            )
 
             CertificateTypeSelector(
                 selected = formState.certificateType,
@@ -90,23 +96,20 @@ fun GenerateFormScreen() {
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Lógica Condicional: Datos del fallecido
             if (formState.certificateType != CertificateType.CRIMINAL_RECORD) {
 
                 SectionTitle("Datos del Fallecido")
 
-                val details =
-                    formState.deathRelatedDetails ?: DeathRelatedDetails()
+                val details = formState.deathRelatedDetails ?: DeathRelatedDetails()
 
                 OutlinedTextField(
                     value = details.deceased.name,
-                    onValueChange = {
-
-                        val updated = details.copy(
-                            deceased = details.deceased.copy(name = it)
-                        )
-
+                    onValueChange = { newValue ->
                         formState = formState.copy(
-                            deathRelatedDetails = updated
+                            deathRelatedDetails = details.copy(
+                                deceased = details.deceased.copy(name = newValue)
+                            )
                         )
                     },
                     label = { Text("Nombre fallecido") },
@@ -114,15 +117,10 @@ fun GenerateFormScreen() {
                 )
 
                 OutlinedTextField(
-                    value = details.deceased.deathDate,
-                    onValueChange = {
-
-                        val updated = details.copy(
-                            deceased = details.deceased.copy(deathDate = it)
-                        )
-
+                    value = details.deathDate,
+                    onValueChange = { newValue ->
                         formState = formState.copy(
-                            deathRelatedDetails = updated
+                            deathRelatedDetails = details.copy(deathDate = newValue)
                         )
                     },
                     label = { Text("Fecha fallecimiento (YYYY-MM-DD)") },
@@ -130,26 +128,18 @@ fun GenerateFormScreen() {
                 )
             }
 
+            // Lógica Condicional: Últimas Voluntades
             if (formState.certificateType == CertificateType.LAST_WILL) {
 
                 SectionTitle("Datos Últimas Voluntades")
 
-                val details =
-                    formState.deathRelatedDetails ?: DeathRelatedDetails()
-
-                val extra =
-                    details.lastWillExtra ?: LastWillExtra()
+                val extra = formState.lastWillExtra ?: LastWillExtra()
 
                 OutlinedTextField(
                     value = extra.notary,
-                    onValueChange = {
-
-                        val updated = details.copy(
-                            lastWillExtra = extra.copy(notary = it)
-                        )
-
+                    onValueChange = { newValue ->
                         formState = formState.copy(
-                            deathRelatedDetails = updated
+                            lastWillExtra = extra.copy(notary = newValue)
                         )
                     },
                     label = { Text("Notario") },
@@ -159,50 +149,29 @@ fun GenerateFormScreen() {
 
             Button(
                 onClick = {
-
                     if (validateForm(formState)) {
-
                         isLoading = true
                         errorMessage = null
 
                         scope.launch {
-
                             try {
-
-                                // 1️⃣ Llamada al backend
-                                val response =
-                                    ApiClient.apiService.generatePdf(formState)
+                                val response = ApiClient.apiService.generatePdf(formState)
 
                                 if (response.status == "SUCCESS") {
-
-                                    // 2️⃣ Descargar PDF
+                                    // Se navega a la ruta webview
                                     val url = "https://sede.mjusticia.gob.es/form790/${response.requestId}"
                                     navController.navigate("webview/$url")
-
-                                    errorMessage =
-                                        "PDF generado. Descarga iniciada."
-
                                 } else {
-
-                                    errorMessage =
-                                        "Error servidor: ${response.message}"
+                                    errorMessage = "Error servidor: ${response.message}"
                                 }
-
                             } catch (e: Exception) {
-
-                                errorMessage =
-                                    "Error de conexión: ${e.localizedMessage}"
-
+                                errorMessage = "Error de conexión: ${e.localizedMessage}"
                             } finally {
-
                                 isLoading = false
                             }
                         }
-
                     } else {
-
-                        errorMessage =
-                            "Por favor rellena DNI y nombre"
+                        errorMessage = "Por favor rellena DNI y nombre"
                     }
                 },
                 modifier = Modifier
@@ -210,22 +179,16 @@ fun GenerateFormScreen() {
                     .padding(vertical = 16.dp),
                 enabled = !isLoading
             ) {
-
                 if (isLoading) {
-
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp)
-                    )
-
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
-
                     Text("GENERAR Y DESCARGAR PDF")
                 }
             }
 
             errorMessage?.let {
                 Text(
-                    it,
+                    text = it,
                     color = MaterialTheme.colorScheme.error
                 )
             }
@@ -239,7 +202,8 @@ fun SectionTitle(title: String) {
         title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.Bold
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 8.dp)
     )
 }
 
@@ -249,24 +213,24 @@ fun CertificateTypeSelector(
     onSelected: (CertificateType) -> Unit
 ) {
     Column {
-
-        CertificateType.values().forEach { type ->
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-
+        CertificateType.entries.forEach { type ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 RadioButton(
                     selected = type == selected,
                     onClick = { onSelected(type) }
                 )
-
-                Text(type.name.replace("_", " "))
+                Text(
+                    text = type.name.replace("_", " "),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }
 }
 
 fun validateForm(req: GenerateRequest): Boolean {
-
-    return req.applicant.documentId.isNotBlank()
-            && req.applicant.name.isNotBlank()
+    return req.applicant.documentId.isNotBlank() && req.applicant.name.isNotBlank()
 }

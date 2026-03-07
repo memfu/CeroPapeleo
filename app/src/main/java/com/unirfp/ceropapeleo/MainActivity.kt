@@ -8,8 +8,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.unirfp.ceropapeleo.forms.GenerateFormScreen
 import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
+import com.unirfp.ceropapeleo.web.MinistryWebViewScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -27,8 +31,25 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
 
-                    GenerateFormScreen()
+                    // Controlador de navegación
+                    val navController = rememberNavController()
 
+                    // Grafo de navegación
+                    NavHost(
+                        navController = navController,
+                        startDestination = "form"
+                    ) {
+
+                        // Pantalla formulario
+                        composable("form") {
+                            GenerateFormScreen(navController)
+                        }
+
+                        // Pantalla WebView
+                        composable("webview") {
+                            MinistryWebViewScreen()
+                        }
+                    }
                 }
             }
         }
