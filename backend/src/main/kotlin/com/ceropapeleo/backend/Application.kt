@@ -3,7 +3,9 @@ package com.ceropapeleo.backend
 import com.ceropapeleo.backend.dto.ErrorResponse
 import com.ceropapeleo.backend.dto.GenerateRequest
 import com.ceropapeleo.backend.logic.RequestValidator
-import io.ktor.http.HttpStatusCode
+import com.ceropapeleo.backend.services.PdfService
+import com.ceropapeleo.backend.routes.pdfRoutes
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -14,17 +16,8 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
-import org.apache.pdfbox.pdmodel.PDDocument
-import org.apache.pdfbox.pdmodel.PDPage
-import org.apache.pdfbox.pdmodel.PDPageContentStream
-import org.apache.pdfbox.pdmodel.font.PDType1Font
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts
-import java.io.ByteArrayOutputStream
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.ContentDisposition
 
 @Serializable
 data class SystemStatus(val status: String, val message: String)
@@ -35,23 +28,33 @@ fun main() {
 }
 
 fun Application.module() {
-    // Configuración de Plugins
-    install(ContentNegotiation) { json() }
+    // 1. Configuración de Plugins Globales
+    install(ContentNegotiation) {
+        json()
+    }
     install(CallLogging)
+
+    // 2. Instanciamos el servicio de PDFBox (Inyección de dependencias manual)
+    // Se crea aquí para que pueda ser compartido por todas las rutas
+    val pdfService = PdfService()
 
     routing {
 
-        // --- 1. ENDPOINT DE BIENVENIDA (Para ver en el navegador) ---
+        // --- 3. TUS RUTAS (PDF Oficial: Rellenado e Inspección) ---
+        // Al llamar a esta función, activamos /fill-pdf y /inspect-pdf
+        pdfRoutes(pdfService)
+
+        // --- ENDPOINT DE BIENVENIDA ---
         get("/") {
-            call.respondText("PRUEBA DE CONEXIÓN: OK ✅")
+            call.respondText("CeroPapeleo Backend: Conexión establecida ✅")
         }
 
-        // --- 2. ENDPOINT DE SALUD
+        // --- ENDPOINT DE SALUD (Health Check) ---
         get("/health") {
-            call.respond(SystemStatus("OK", "Backend funcionando correctamente"))
+            call.respond(SystemStatus("OK", "Servidor funcionando correctamente"))
         }
 
-        // --- 3. ENDPOINT DE GENERACIÓN  ---
+        // --- GENERACIÓN DE BORRADOR (Lógica de Maria/Cris) ---
         post("/generate") {
             try {
                 val request = call.receive<GenerateRequest>()
@@ -62,22 +65,20 @@ fun Application.module() {
                     call.respond(
                         HttpStatusCode.BadRequest, ErrorResponse(
                             errorCode = "VALIDATION_ERROR",
-                            message = "Existen errores en los datos enviados",
-                            errors = fieldErrors
+                            message = "Existen errores en los datos enviados"
                         )
                     )
                     return@post
                 }
-                // --- NUEVA LÓGICA: GENERACIÓN REAL DEL PDF ---
+
+                // Generación de PDF dummy (Borrador)
                 val pdfBytes = createDummyPdf(request)
 
-                // Configuramos las cabeceras para que el cliente sepa que es un PDF
                 call.response.header(
                     HttpHeaders.ContentDisposition,
                     ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "Modelo790_Borrador.pdf").toString()
                 )
 
-                // Respondemos con los bytes del PDF
                 call.respondBytes(pdfBytes, ContentType.Application.Pdf, HttpStatusCode.Created)
 
             } catch (e: Exception) {
@@ -85,17 +86,16 @@ fun Application.module() {
                 call.respond(
                     HttpStatusCode.InternalServerError, ErrorResponse(
                         errorCode = "INTERNAL_SERVER_ERROR",
-                        message = "Error inesperado: ${e.message}",
-                        errors = null
+                        message = "Error inesperado: ${e.message}"
                     )
                 )
             }
         }
     }
 }
+
 /**
- * Función que genera el contenido del PDF.
- * Se define fuera de module() para mantener el código organizado.
+ * Función que genera el contenido del PDF desde cero (Borrador).
  */
 private fun createDummyPdf(request: com.ceropapeleo.backend.dto.GenerateRequest): ByteArray {
     val outputStream = java.io.ByteArrayOutputStream()
