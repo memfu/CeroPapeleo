@@ -11,10 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+// --- NUEVA IMPORTACIÓN ---
+import com.unirfp.ceropapeleo.home.HomeSelectionScreen
 import com.unirfp.ceropapeleo.forms.GenerateFormScreen
 import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
 import com.unirfp.ceropapeleo.web.MinistryWebViewScreen
-
 
 class MainActivity : ComponentActivity() {
 
@@ -32,12 +33,19 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = "form"
+                        startDestination = "home" // Ahora la app arranca en la selección
                     ) {
-                        composable("form") {
+                        // Pantalla de selección inicial
+                        composable("home") {
+                            HomeSelectionScreen(navController)
+                        }
+
+                        // Pantalla del formulario (Ruta vinculada al botón de la Home)
+                        composable("form_ultimas_voluntades") {
                             GenerateFormScreen(navController)
                         }
 
+                        // Pantalla del WebView
                         composable("webview") {
                             MinistryWebViewScreen()
                         }
