@@ -5,97 +5,98 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.webkit.CookieManager
-import android.webkit.DownloadListener
+import android.webkit.URLUtil
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-// URL configurable del formulario en la Sede Electrónica del Ministerio
-const val MINISTRY_URL =
-    "https://sede.mjusticia.gob.es/servidorformularios/formularios?idFormulario=790&lang=es_es"
+private const val MINISTRY_URL = "https://sede.mjusticia.gob.es/servidorformularios/formularios?idFormulario=790&lang=es_es"
 
 @Composable
-fun MinistryWebViewScreen(
-    modifier: Modifier = Modifier
-) {
+fun MinistryWebViewScreen() {
     val context = LocalContext.current
 
     AndroidView(
-        modifier = modifier,
         factory = { ctx ->
             WebView(ctx).apply {
-
-                // CONFIGURACIÓN WEBVIEW
+                // Configuración mínima necesaria para sedes electrónicas modernas
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
-                settings.userAgentString = settings.userAgentString // asegura compatibilidad
 
+                // Evita que los enlaces se abran en el navegador externo
                 webViewClient = WebViewClient()
 
-                // DETECCIÓN DE DESCARGAS
-                setDownloadListener { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-
+                // Detecta la descarga del PDF oficial
+                setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
                     Toast.makeText(
-                        context,
-                        "Descarga detectada...",
-                        Toast.LENGTH_SHORT
+                        ctx,
+                        "Descarga detectada. Guardando PDF oficial...",
+                        Toast.LENGTH_LONG
                     ).show()
 
-                    downloadFile(
-                        context = context,
-                        url = downloadUrl,
+                    downloadPdf(
+                        context = ctx,
+                        downloadUrl = url,
                         userAgent = userAgent,
                         contentDisposition = contentDisposition,
                         mimeType = mimeType
                     )
                 }
 
-                // CARGAR WEB DEL MINISTERIO
+                // Carga la sede electrónica
                 loadUrl(MINISTRY_URL)
             }
         }
     )
 }
 
-fun downloadFile(
+/**
+ * Descarga el PDF usando DownloadManager.
+ *
+ * Se pasan las cookies de sesión y el user-agent de la WebView para conservar
+ * el contexto de navegación del usuario en la sede electrónica.
+ */
+private fun downloadPdf(
     context: Context,
-    url: String,
-    userAgent: String?,
+    downloadUrl: String,
+    userAgent: String,
     contentDisposition: String?,
     mimeType: String?
 ) {
+    val request = DownloadManager.Request(Uri.parse(downloadUrl))
 
-    val cookieManager = CookieManager.getInstance()
-    val cookies = cookieManager.getCookie(url) ?: ""
-
-    val request = DownloadManager.Request(Uri.parse(url))
-
-    request.setMimeType(mimeType)
-    request.addRequestHeader("cookie", cookies)
-    userAgent?.let {
-        request.addRequestHeader("User-Agent", it)
+    // Recuperar cookies activas de la sesión
+    val cookies = CookieManager.getInstance().getCookie(downloadUrl)
+    if (!cookies.isNullOrEmpty()) {
+        request.addRequestHeader("Cookie", cookies)
     }
 
-    request.setDescription("Descargando PDF oficial...")
-    request.setTitle(generateFileName())
+    // Pasar el user-agent de la WebView
+    request.addRequestHeader("User-Agent", userAgent)
 
-    request.allowScanningByMediaScanner()
+    // Referer útil para algunas sedes electrónicas
+    request.addRequestHeader("Referer", MINISTRY_URL)
+
+    // Configuración de visibilidad y guardado
     request.setNotificationVisibility(
         DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+    )
+    request.allowScanningByMediaScanner()
+
+    val fileName = URLUtil.guessFileName(
+        downloadUrl,
+        contentDisposition,
+        mimeType ?: "application/pdf"
     )
 
     request.setDestinationInExternalPublicDir(
         Environment.DIRECTORY_DOWNLOADS,
-        generateFileName()
+        fileName
     )
 
     val downloadManager =
@@ -105,13 +106,7 @@ fun downloadFile(
 
     Toast.makeText(
         context,
-        "Descargando PDF en la carpeta Downloads",
+        "El PDF se está descargando en Descargas",
         Toast.LENGTH_LONG
     ).show()
-}
-
-// Genera un nombre único para cada descarga
-private fun generateFileName(): String {
-    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-    return "formulario_790_$timestamp.pdf"
 }

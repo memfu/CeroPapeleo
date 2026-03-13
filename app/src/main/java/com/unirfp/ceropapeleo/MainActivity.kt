@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+// --- NUEVA IMPORTACIÓN ---
+import com.unirfp.ceropapeleo.home.HomeSelectionScreen
 import com.unirfp.ceropapeleo.forms.GenerateFormScreen
 import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
 import com.unirfp.ceropapeleo.web.MinistryWebViewScreen
@@ -23,29 +25,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-
             CeroPapeleoTheme {
-
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-
-                    // Controlador de navegación
                     val navController = rememberNavController()
 
-                    // Grafo de navegación
                     NavHost(
                         navController = navController,
-                        startDestination = "form"
+                        startDestination = "home" // Ahora la app arranca en la selección
                     ) {
+                        // Pantalla de selección inicial
+                        composable("home") {
+                            HomeSelectionScreen(navController)
+                        }
 
-                        // Pantalla formulario
-                        composable("form") {
+                        // Pantalla del formulario (Ruta vinculada al botón de la Home)
+                        composable("form_ultimas_voluntades") {
                             GenerateFormScreen(navController)
                         }
 
-                        // Pantalla WebView
+                        // Pantalla del WebView
                         composable("webview") {
                             MinistryWebViewScreen()
                         }
