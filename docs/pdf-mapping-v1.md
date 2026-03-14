@@ -2,62 +2,74 @@
 Proyecto: CeroPapeleo  
 Fecha: 14/03/2026  
 
-Este documento define la correspondencia entre los campos del PDF oficial del Modelo 790 y las rutas del modelo JSON `GenerateRequest`.
+# Alcance
+
+Este mapping define la correspondencia entre los campos del **PDF oficial 790 del Ministerio de Justicia** y el modelo de datos enviado por la aplicación móvil (`GenerateRequest`).
+
+El formulario 790 contiene campos para **tres certificados distintos**:
+
+- Antecedentes penales
+- Últimas voluntades
+- Contratos de seguros de cobertura por fallecimiento
+
+En esta versión del proyecto (**MVP**) únicamente se implementa el flujo de:
+
+**CERTIFICADO DE ÚLTIMAS VOLUNTADES (LAST_WILL)**
+
+Por tanto:
+
+- Solo se mapean los campos necesarios para este certificado.
+- Los campos pertenecientes a otras secciones se marcan como **FUERA_MVP**.
+
+---
+
+# Modelo JSON de referencia
+
+Los datos enviados por la aplicación siguen la estructura del modelo: `GenerateRequest`.
 
 La primera columna corresponde al nombre del campo detectado en el AcroForm del PDF mediante PDFBox.  
 La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la aplicación.
 
+
 ---
 
-## Datos del solicitante
+# 1. Datos del solicitante
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 33 NIFNIE | applicant.documentId | Sí | DNI/NIE/Pasaporte del solicitante |
+| 1 NIF/NIE | applicant.documentId | Sí | DNI/NIE del solicitante |
 | 2 PRIMER APELLIDO DEL SOLICITANTE | applicant.firstSurname | Sí | |
 | 3 SEGUNDO APELLIDO | applicant.secondSurname | No | |
 | 4 NOMBRE | applicant.name | Sí | |
 
 ---
 
-## Dirección del solicitante
+# 2. Dirección del solicitante
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 5 DOMICILIO CALLEPLAZAAVENIDA | applicant.address.street | Sí | Calle o vía |
+| 5 DOMICILIO CALLE / PLAZA / AVENIDA | applicant.address.street | Sí | |
 | 6 NÚMERO | applicant.address.number | No | |
-| ESCALERA | applicant.address.staircase | No | |
+| 7 ESCALERA | applicant.address.staircase | No | |
 | 8 PISO | applicant.address.floor | No | |
 | 9 PUERTA | applicant.address.door | No | |
 | 11 DOMICILIO MUNICIPIO | applicant.address.city | Sí | |
 | 12 DOMICILIO PROVINCIA | applicant.address.province | Sí | |
-| 12 DOMICILIO PAIS | applicant.address.country | Sí | Default: España |
+| 13 DOMICILIO PAÍS | applicant.address.country | Sí | Default: España |
 | 14 CÓDIGO POSTAL | applicant.address.postalCode | Sí | |
 
 ---
 
-## Contacto
+# 3. Contacto
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 10 TELEFONOS FIJO YO MÓVIL | applicant.contact.mobilePhone | No | |
+| 10 TELÉFONOS FIJO Y/O MÓVIL | applicant.contact.mobilePhone | No | |
 | 15 CORREO ELECTRÓNICO | applicant.contact.email | No | |
 
 ---
 
-## Tipo de certificado
-
-Estos campos del PDF están representados como **checkboxes**.
-
-| Campo PDF | Ruta JSON | Notas |
-|---|---|---|
-| 17 Antecedentes Penales | certificateType | Activar si certificateType = CRIMINAL_RECORD |
-| 18 Últimas voluntades | certificateType | Activar si certificateType = LAST_WILL |
-| 19 Contrato de seguros de cobertura de | certificateType | Activar si certificateType = DEATH_INSURANCE_CONTRACTS |
-
----
-
-## Destino del certificado
+# 4. Destino del certificado
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
@@ -66,23 +78,26 @@ Estos campos del PDF están representados como **checkboxes**.
 
 ---
 
-## Datos de la persona fallecida
+# 5. Datos del fallecido (Bloque Últimas Voluntades)
+
+Los campos correspondientes al causante se encuentran en el **bloque 33-40 del formulario**.
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 22 NIFCIFNIE | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del causante |
-| 23 PRIMER APELLIDO O DENOMINACIÓN SOCIAL | deathRelatedDetails.deceased.firstSurname | Sí | |
-| 24 SEGUNDO APELLIDO | deathRelatedDetails.deceased.secondSurname | No | |
-| 25 NOMBRE | deathRelatedDetails.deceased.name | Sí | |
-| 26 FECHA DE NACIMIENTO | deathRelatedDetails.deceased.birthDate | No | Formato YYYY-MM-DD |
-| 27 POBLACIÓN DE NACIMIENTO | deathRelatedDetails.deceased.birthCity | No | |
-| 28 PROVINCIAPAIS DE NACIMIENTO | PENDIENTE | No |Campo detectado por PDFBox pero no identificado visualmente en el formulario |
-| 37 FECHA DE DEFUNCIÓN | deathRelatedDetails.deceased.deathDate | Sí | Formato YYYY-MM-DD |
+| 33 NIF/NIE | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del causante |
+| 34 PRIMER APELLIDO DE LA PERSONA FALLECIDA | deathRelatedDetails.deceased.firstSurname | Sí | |
+| 35 SEGUNDO APELLIDO | deathRelatedDetails.deceased.secondSurname | No | |
+| 36 NOMBRE | deathRelatedDetails.deceased.name | Sí | |
+| 37 FECHA DE DEFUNCIÓN | deathRelatedDetails.deceased.deathDate | Sí | Formato recomendado YYYY-MM-DD |
 | 38 POBLACIÓN DE DEFUNCIÓN | deathRelatedDetails.deceased.deathCity | No | |
+| 39 FECHA DE NACIMIENTO | deathRelatedDetails.deceased.birthDate | No | |
+| 40 POBLACIÓN DE NACIMIENTO | deathRelatedDetails.deceased.birthCity | No | |
 
 ---
 
-## Datos de últimas voluntades
+# 6. Información notarial del testamento
+
+Estos campos son **opcionales** y solo se rellenan si el usuario conoce la información.
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
@@ -93,17 +108,44 @@ Estos campos del PDF están representados como **checkboxes**.
 
 ---
 
-## Firma del documento
+# 7. Firma
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
 | FECHA LUGAR | signature.place | Sí | Lugar de firma |
-| FECHA | signature.date | Sí | Fecha de firma |
+| FECHA | signature.date | Sí | Formato recomendado YYYY-MM-DD |
 
 ---
 
-## Pago
+# 8. Tipo de certificado
 
-| Campo PDF | Ruta JSON | Notas |
-|---|---|---|
-| EUROS | payment.amountEur | Valor por defecto: 3.78 |
+| Campo PDF | Ruta JSON | Obligatorio | Notas |
+|---|---|---|---|
+| 18 Últimas voluntades | certificateType | Sí | Marcar checkbox cuando certificateType = LAST_WILL |
+
+---
+
+# 9. Pago
+
+| Campo PDF | Ruta JSON | Obligatorio | Notas |
+|---|---|---|---|
+| EUROS | payment.amountEur | Sí | Valor por defecto 3.78 |
+
+---
+
+# Campos detectados en el PDF pero fuera del MVP
+
+Los siguientes campos pertenecen a otras secciones del formulario y no se utilizan en esta versión:
+
+- 17 Antecedentes Penales
+- 19 Contrato de seguros de cobertura de fallecimiento
+- 29 País de nacionalidad
+- 30 Nombre del padre
+- 31 Nombre de la madre
+- 32 Finalidad para la que se solicita
+- CCC*
+- CODIGO*
+- JUSTIFICANTE
+- Casillas de verificación adicionales
+
+Estos campos se implementarán únicamente si el proyecto amplía su alcance a otros certificados.
