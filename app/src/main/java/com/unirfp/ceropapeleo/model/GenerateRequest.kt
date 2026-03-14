@@ -57,26 +57,11 @@ data class Destination(
     val authorityOrEntity: String = ""
 )
 
-/**
- * Detalles de la tasa administrativa.
- * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
- */
-data class Payment(
-    val amountEur: Double = 3.78,
-    val paymentMethod: String = "CASH"
-)
 
 /**
- * Metadatos de la firma y entrega del documento.
- */
-data class Signature(
-    val place: String = "",
-    val date: String = "", // Formato recomendado: YYYY-MM-DD
-    val postalDeliveryAuthorized: Boolean = true
-)
-
-/**
- * Contenedor de información específica para el certificado de últimas voluntades.
+* Contenedor de información relacionada con certificados de fallecimiento.
+ * En el MVP, lastWillExtra solo se usa cuando certificateType == "LAST_WILL".
+ * MVP centrado en LAST_WILL. Otros tipos requerirán validación condicional.
  */
 data class DeathRelatedDetails(
     val deceased: Deceased = Deceased(),
@@ -105,4 +90,22 @@ data class LastWillExtra(
     val notary: String = "",
     val grantPlace: String = "",
     val spousesFullName: String = ""
+)
+
+/**
+ * Metadatos de la firma y entrega del documento.
+ */
+data class Signature(
+    val place: String = "",
+    val date: String = "", // Formato recomendado: YYYY-MM-DD
+    val postalDeliveryAuthorized: Boolean = true
+)
+
+/**
+ * Detalles de la tasa administrativa.
+ * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
+ */
+data class Payment(
+    val amountEur: Double = 3.78,
+    val paymentMethod: String = "CASH"
 )
