@@ -76,7 +76,8 @@ data class Signature(
 )
 
 /**
- * Contenedor de información específica para el certificado de últimas voluntades.
+* Contenedor de información relacionada con certificados de fallecimiento.
+ * En el MVP, lastWillExtra solo se usa cuando certificateType == "LAST_WILL".
  */
 data class DeathRelatedDetails(
     val deceased: Deceased = Deceased(),
