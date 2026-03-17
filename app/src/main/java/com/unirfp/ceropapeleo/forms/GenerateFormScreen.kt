@@ -655,28 +655,28 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankEnt,
                         onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) bankEnt = it },
-                        label = "Entid.",
+                        label = "Entid.*",
                         modifier = Modifier.weight(1f),
                         isError = showErrors && bankEnt.length < 4
                     )
                     CustomTextField(
                         value = bankOff,
                         onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) bankOff = it },
-                        label = "Ofic.",
+                        label = "Ofic.*",
                         modifier = Modifier.weight(1f),
                         isError = showErrors && bankOff.length < 4
                     )
                     CustomTextField(
                         value = bankDC,
                         onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) bankDC = it },
-                        label = "DC",
+                        label = "DC*",
                         modifier = Modifier.weight(0.6f),
                         isError = showErrors && bankDC.length < 2
                     )
                     CustomTextField(
                         value = bankAcc,
                         onValueChange = { if (it.length <= 10 && it.all { c -> c.isDigit() }) bankAcc = it },
-                        label = "Número de cuenta",
+                        label = "Número de cuenta*",
                         modifier = Modifier.weight(2f),
                         isError = showErrors && bankAcc.length < 10
                     )
