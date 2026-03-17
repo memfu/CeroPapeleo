@@ -67,6 +67,11 @@ fun GenerateFormScreen(navController: NavController) {
         return regex.matches(this)
     }
 
+    val email = formData.applicant.contact.email
+
+    val isEmailValid = email.isNotBlank() &&
+            android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
     // --- LÓGICA DE VALIDACIÓN GLOBAL ---
     val isFormValid = formData.applicant.name.isNotBlank() &&
             formData.applicant.firstSurname.isNotBlank() &&
@@ -80,7 +85,8 @@ fun GenerateFormScreen(navController: NavController) {
             formData.signature.place.isNotBlank() &&
             daySign.isNotBlank() &&
             monthSign.isNotBlank() &&
-            yearSign.length == 2
+            yearSign.length == 2 &&
+            isEmailValid
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Formulario 790 - Últimas Voluntades") }) }
@@ -152,11 +158,6 @@ fun GenerateFormScreen(navController: NavController) {
             // ---  METODO DE RECEPCIÓN ---
             FormSectionTitle("2. ¿Dónde desea recibir su certificado?")
 
-            val email = formData.applicant.contact.email
-
-            val isEmailValid = email.isEmpty() ||
-                    android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
-
             CustomTextField(
                 value = formData.applicant.contact.mobilePhone,
                 onValueChange = {
@@ -176,7 +177,7 @@ fun GenerateFormScreen(navController: NavController) {
                     val newContact = formData.applicant.contact.copy(email = it.take(60))
                     formData = formData.copy(applicant = formData.applicant.copy(contact = newContact))
                 },
-                label = "Correo electrónico (para recibir por EMAIL)",
+                label = "Correo electrónico (para recibir por EMAIL)*",
                 isError = showErrors && !isEmailValid,
                 errorMessage = "Introduce un email válido",
                 maxLength = 60
