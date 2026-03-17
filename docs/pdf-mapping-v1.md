@@ -80,18 +80,18 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 # 5. Datos del fallecido (Bloque Últimas Voluntades)
 
-Los campos correspondientes al causante se encuentran en el **bloque 33-40 del formulario**.
+Los campos correspondientes al difunto se encuentran en el **bloque 33-40 del formulario**.
 
-| Campo PDF                                  | Ruta JSON | Obligatorio | Notas |
-|--------------------------------------------|---|---|---|
-| 33 NIFNIE                                  | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del causante |
-| 34 PRIMER APELLIDO DE LA PERSONA FALLECIDA | deathRelatedDetails.deceased.firstSurname | Sí | |
-| 35 SEGUNDO APELLIDO                        | deathRelatedDetails.deceased.secondSurname | No | |
-| 36 NOMBRE                                  | deathRelatedDetails.deceased.name | Sí | |
+| Campo PDF                                  | Ruta JSON | Obligatorio | Notas                          |
+|--------------------------------------------|---|---|--------------------------------|
+| 33 NIFNIE                                  | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del difunto            |
+| 34 PRIMER APELLIDO DE LA PERSONA FALLECIDA | deathRelatedDetails.deceased.firstSurname | Sí |                                |
+| 35 SEGUNDO APELLIDO                        | deathRelatedDetails.deceased.secondSurname | No |                                |
+| 36 NOMBRE                                  | deathRelatedDetails.deceased.name | Sí |                                |
 | 37 FECHA DE DEFUNCIÓN                      | deathRelatedDetails.deceased.deathDate | Sí | Formato recomendado YYYY-MM-DD |
-| 38 POBLACIÓN DE DEFUNCIÓN                  | deathRelatedDetails.deceased.deathCity | No | |
-| 39 FECHA DE NACIMIENTO                     | deathRelatedDetails.deceased.birthDate | No | |
-| 39 POBLACIÓN DE NACIMIENTO                 | deathRelatedDetails.deceased.birthCity | No | |
+| 38 POBLACIÓN DE DEFUNCIÓN                  | deathRelatedDetails.deceased.deathCity | No |                                |
+| 39 FECHA DE NACIMIENTO                     | deathRelatedDetails.deceased.birthDate | No |                                |
+| 39 POBLACIÓN DE NACIMIENTO                 | deathRelatedDetails.deceased.birthCity | No |                                |
 
 ---
 
