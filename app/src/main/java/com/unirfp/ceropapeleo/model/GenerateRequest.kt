@@ -57,6 +57,14 @@ data class Destination(
     val authorityOrEntity: String = ""
 )
 
+/**
+ * Detalles de la tasa administrativa.
+ * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
+ */
+data class Payment(
+    val amountEur: Double = 3.86,
+    val paymentMethod: String = "CASH"
+)
 
 /**
 * Contenedor de información relacionada con certificados de fallecimiento.

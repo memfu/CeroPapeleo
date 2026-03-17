@@ -37,7 +37,7 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 1 NIF/NIE | applicant.documentId | Sí | DNI/NIE del solicitante |
+| 1 NIFNIE | applicant.documentId | Sí | DNI/NIE del solicitante |
 | 2 PRIMER APELLIDO DEL SOLICITANTE | applicant.firstSurname | Sí | |
 | 3 SEGUNDO APELLIDO | applicant.secondSurname | No | |
 | 4 NOMBRE | applicant.name | Sí | |
@@ -46,17 +46,17 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 # 2. Dirección del solicitante
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
-|---|---|---|---|
-| 5 DOMICILIO CALLE / PLAZA / AVENIDA | applicant.address.street | Sí | |
-| 6 NÚMERO | applicant.address.number | No | |
-| 7 ESCALERA | applicant.address.staircase | No | |
-| 8 PISO | applicant.address.floor | No | |
-| 9 PUERTA | applicant.address.door | No | |
-| 11 DOMICILIO MUNICIPIO | applicant.address.city | Sí | |
-| 12 DOMICILIO PROVINCIA | applicant.address.province | Sí | |
-| 13 DOMICILIO PAÍS | applicant.address.country | Sí | Default: España |
-| 14 CÓDIGO POSTAL | applicant.address.postalCode | Sí | |
+| Campo PDF                     | Ruta JSON | Obligatorio | Notas |
+|-------------------------------|---|---|---|
+| 5 DOMICILIO CALLEPLAZAAVENIDA | applicant.address.street | Sí | |
+| 6 NÚMERO                      | applicant.address.number | No | |
+| ESCALERA                      | applicant.address.staircase | No | |
+| 8 PISO                        | applicant.address.floor | No | |
+| 9 PUERTA                      | applicant.address.door | No | |
+| 11 DOMICILIO MUNICIPIO        | applicant.address.city | Sí | |
+| 12 DOMICILIO PROVINCIA        | applicant.address.province | Sí | |
+| 12 DOMICILIO PAIS             | applicant.address.country | Sí | Default: España |
+| 14 CÓDIGO POSTAL              | applicant.address.postalCode | Sí | |
 
 ---
 
@@ -64,7 +64,7 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
-| 10 TELÉFONOS FIJO Y/O MÓVIL | applicant.contact.mobilePhone | No | |
+| 10 TELÉFONOS FIJO YO MÓVIL | applicant.contact.mobilePhone | No | |
 | 15 CORREO ELECTRÓNICO | applicant.contact.email | No | |
 
 ---
@@ -82,16 +82,16 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 Los campos correspondientes al causante se encuentran en el **bloque 33-40 del formulario**.
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
-|---|---|---|---|
-| 33 NIF/NIE | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del causante |
+| Campo PDF                                  | Ruta JSON | Obligatorio | Notas |
+|--------------------------------------------|---|---|---|
+| 33 NIFNIE                                  | deathRelatedDetails.deceased.documentId | Sí | DNI/NIE del causante |
 | 34 PRIMER APELLIDO DE LA PERSONA FALLECIDA | deathRelatedDetails.deceased.firstSurname | Sí | |
-| 35 SEGUNDO APELLIDO | deathRelatedDetails.deceased.secondSurname | No | |
-| 36 NOMBRE | deathRelatedDetails.deceased.name | Sí | |
-| 37 FECHA DE DEFUNCIÓN | deathRelatedDetails.deceased.deathDate | Sí | Formato recomendado YYYY-MM-DD |
-| 38 POBLACIÓN DE DEFUNCIÓN | deathRelatedDetails.deceased.deathCity | No | |
-| 39 FECHA DE NACIMIENTO | deathRelatedDetails.deceased.birthDate | No | |
-| 40 POBLACIÓN DE NACIMIENTO | deathRelatedDetails.deceased.birthCity | No | |
+| 35 SEGUNDO APELLIDO                        | deathRelatedDetails.deceased.secondSurname | No | |
+| 36 NOMBRE                                  | deathRelatedDetails.deceased.name | Sí | |
+| 37 FECHA DE DEFUNCIÓN                      | deathRelatedDetails.deceased.deathDate | Sí | Formato recomendado YYYY-MM-DD |
+| 38 POBLACIÓN DE DEFUNCIÓN                  | deathRelatedDetails.deceased.deathCity | No | |
+| 39 FECHA DE NACIMIENTO                     | deathRelatedDetails.deceased.birthDate | No | |
+| 39 POBLACIÓN DE NACIMIENTO                 | deathRelatedDetails.deceased.birthCity | No | |
 
 ---
 
