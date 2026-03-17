@@ -23,12 +23,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.unirfp.ceropapeleo.api.PdfRepository
 import com.unirfp.ceropapeleo.model.GenerateRequest
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +49,11 @@ fun GenerateFormScreen(navController: NavController) {
     var bankOff by remember { mutableStateOf("") }
     var bankDC by remember { mutableStateOf("") }
     var bankAcc by remember { mutableStateOf("") }
+    // DENTRO de tu Composable GenerateFormScreen(navController: NavController)
+// Añade esta línea al principio para poder lanzar la petición:
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val repository = remember { PdfRepository() }
 
     // --- HELPERS DE VALIDACIÓN / SANEADO ---
 
@@ -706,18 +714,53 @@ fun GenerateFormScreen(navController: NavController) {
                     onClick = {
                         showErrors = true
 
-                        val fullSignatureDate =
-                            if (daySign.isNotBlank() && monthSign.isNotBlank() && yearSign.length == 2) {
-                                "$daySign/$monthSign/20$yearSign"
-                            } else {
-                                ""
-                            }
+                        // 1. Construir la fecha de firma completa
+                        val fullSignatureDate = if (daySign.isNotBlank() && monthSign.isNotBlank() && yearSign.length == 2) {
+                            "$daySign/$monthSign/20$yearSign"
+                        } else {
+                            ""
+                        }
 
+                        // 2. Actualizar el estado con la fecha
                         formData = formData.copy(
                             signature = formData.signature.copy(date = fullSignatureDate)
                         )
 
-                        if (isFormValid) { /* OK */ }
+                        // 3. Validación y ejecución
+                        if (isFormValid) {
+                            scope.launch {
+                                try {
+                                    // LOCALIZAR EL PDF (Asegúrate de que este nombre coincida con el que bajaste en DownloadUtils)
+                                    val pdfFile = java.io.File(
+                                        android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                                        "formulario_base.pdf"
+                                    )
+
+                                    // MAPPER: Convertimos tu objeto GenerateRequest a un Map plano
+                                    // Sustituye 'tuMapperManual' por el nombre de tu función mapper real
+                                    val dataMap = com.unirfp.ceropapeleo.api.UserDataMapper.toFlatMap(formData)
+
+                                    // LLAMADA AL BACKEND
+                                    val responseBody = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        repository.uploadAndFillPdf(pdfFile, dataMap)
+                                    }
+
+                                    if (responseBody != null) {
+                                        // GUARDAR EL PDF RESULTANTE
+                                        val finalPdf = com.unirfp.ceropapeleo.utils.DownloadUtils.saveApiPdfToDisk(
+                                            context,
+                                            responseBody,
+                                            "Solicitud_Final_${System.currentTimeMillis()}.pdf"
+                                        )
+
+                                        // Opcional: Feedback al usuario
+                                        println("PDF guardado en: ${finalPdf?.absolutePath}")
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
