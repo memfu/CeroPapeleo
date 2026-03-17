@@ -62,7 +62,7 @@ data class Destination(
  * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
  */
 data class Payment(
-    val amountEur: Double = 3.78,
+    val amountEur: Double = 3.86,
     val paymentMethod: String = "CASH"
 )
 
