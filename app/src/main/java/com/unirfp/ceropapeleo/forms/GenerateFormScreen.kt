@@ -70,12 +70,17 @@ fun GenerateFormScreen(navController: NavController) {
     // --- LÓGICA DE VALIDACIÓN GLOBAL ---
     val isFormValid = formData.applicant.name.isNotBlank() &&
             formData.applicant.firstSurname.isNotBlank() &&
+            formData.applicant.documentId.isNotBlank() &&
             formData.applicant.address.city.isNotBlank() &&
             formData.applicant.address.province.isNotBlank() &&
             formData.applicant.address.country.isNotBlank() &&
             formData.deathRelatedDetails.deceased.name.isNotBlank() &&
             formData.deathRelatedDetails.deceased.firstSurname.isNotBlank() &&
-            formData.deathRelatedDetails.deceased.deathDate.isValidSpanishDate()
+            formData.deathRelatedDetails.deceased.deathDate.isValidSpanishDate() &&
+            formData.signature.place.isNotBlank() &&
+            daySign.isNotBlank() &&
+            monthSign.isNotBlank() &&
+            yearSign.length == 2
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Formulario 790 - Últimas Voluntades") }) }
@@ -699,6 +704,18 @@ fun GenerateFormScreen(navController: NavController) {
                 Button(
                     onClick = {
                         showErrors = true
+
+                        val fullSignatureDate =
+                            if (daySign.isNotBlank() && monthSign.isNotBlank() && yearSign.length == 2) {
+                                "$daySign/$monthSign/20$yearSign"
+                            } else {
+                                ""
+                            }
+
+                        formData = formData.copy(
+                            signature = formData.signature.copy(date = fullSignatureDate)
+                        )
+
                         if (isFormValid) { /* OK */ }
                     },
                     modifier = Modifier.weight(1f),
