@@ -59,7 +59,7 @@ data class Destination(
 
 /**
  * Detalles de la tasa administrativa.
- * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
+ * El monto por defecto (3.86) corresponde a la tasa legal vigente para este trámite.
  */
 data class Payment(
     val amountEur: Double = 3.86,
@@ -107,13 +107,4 @@ data class Signature(
     val place: String = "",
     val date: String = "", // Formato recomendado: YYYY-MM-DD
     val postalDeliveryAuthorized: Boolean = true
-)
-
-/**
- * Detalles de la tasa administrativa.
- * El monto por defecto (3.78) corresponde a la tasa legal vigente para este trámite.
- */
-data class Payment(
-    val amountEur: Double = 3.78,
-    val paymentMethod: String = "CASH"
 )
