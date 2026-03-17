@@ -127,9 +127,9 @@ Estos campos son **opcionales** y solo se rellenan si el usuario conoce la infor
 
 # 9. Pago
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
-|---|---|---|---|
-| EUROS | payment.amountEur | Sí | Valor por defecto 3.78 |
+| Campo PDF | Ruta JSON | Obligatorio | Notas                  |
+|---|---|---|------------------------|
+| EUROS | payment.amountEur | Sí | Valor por defecto 3.86 |
 
 ---
 
