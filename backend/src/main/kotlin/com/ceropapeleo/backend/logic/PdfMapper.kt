@@ -2,39 +2,41 @@ package com.ceropapeleo.backend.logic
 
 import org.slf4j.LoggerFactory
 
-/**
- * El Mapper actúa como un "Traductor".
- * Sabe que el dato "name" de Android debe ir al campo "f1_01(0)" del PDF.
- */
 object PdfMapper {
     private val logger = LoggerFactory.getLogger(PdfMapper::class.java)
 
-    // Diccionario de equivalencias: CampoPDF -> ClaveJSON
-    // Si el Ministerio cambia el PDF, solo tocamos esta lista.
     private val MODELO_790_MAP = mapOf(
-        "f1_01(0)" to "name",
-        "f1_02(0)" to "surname1",
-        "f1_03(0)" to "surname2",
-        "dni_nie"  to "documentId",
-        "prov_res" to "province"
+        "nie" to "documentId",
+        "2 PRIMER APELLIDO DEL SOLICITANTE" to "surname1",
+        "3 SEGUNDO APELLIDO" to "surname2",
+        "4 NOMBRE" to "name",
+        "5 DOMICILIO CALLEPLAZAAVENIDA" to "street",
+        "6 NÚMERO" to "number",
+        "11 DOMICILIO MUNICIPIO" to "city",
+        "12 DOMICILIO PROVINCIA" to "province",
+        "14 CÓDIGO POSTAL" to "postalCode",
+        "10 TELEFONOS FIJO YO MÓVIL" to "mobilePhone",
+        "15 CORREO ELECTRÓNICO" to "email",
+        "39 POBLACION  DE NACIMIENTO" to "birthCity",
+        "18 Últimas voluntades" to "certificateType"
     )
 
-    /**
-     * Traduce el JSON que envía la App al formato que entiende el PDF.
-     * @param userData Los datos originales de la App (ej: {"name": "Marilú"})
-     * @return Los datos listos para el PDF (ej: {"f1_01(0)": "Marilú"})
-     */
     fun transformToPdfFields(userData: Map<String, String>): Map<String, String> {
         val finalMap = mutableMapOf<String, String>()
 
-        MODELO_790_MAP.forEach { (pdfField, jsonKey) ->
+        MODELO_790_MAP.forEach { (pdfId, jsonKey) ->
             val value = userData[jsonKey]
+
             if (!value.isNullOrBlank()) {
-                finalMap[pdfField] = value
-                logger.info("Mapping: JSON '$jsonKey' -> PDF '$pdfField' (Valor: $value)")
+                if (jsonKey == "certificateType" && value == "LAST_WILL") {
+                    finalMap[pdfId] = "On" // REGLA ORO: On para marcar la X
+                    logger.info("✅ Checkbox activado: $pdfId")
+                } else {
+                    finalMap[pdfId] = value
+                    logger.info("⚡ Mapping: App($jsonKey) -> PDF($pdfId) = $value")
+                }
             }
         }
-
         return finalMap
     }
 }
