@@ -6,18 +6,33 @@ object PdfMapper {
     private val logger = LoggerFactory.getLogger(PdfMapper::class.java)
 
     private val MODELO_790_MAP = mapOf(
+        // 1. Datos del solicitante
         "nie" to "documentId",
         "2 PRIMER APELLIDO DEL SOLICITANTE" to "surname1",
         "3 SEGUNDO APELLIDO" to "surname2",
         "4 NOMBRE" to "name",
+
+        // 2. Dirección
         "5 DOMICILIO CALLEPLAZAAVENIDA" to "street",
         "6 NÚMERO" to "number",
         "11 DOMICILIO MUNICIPIO" to "city",
         "12 DOMICILIO PROVINCIA" to "province",
         "14 CÓDIGO POSTAL" to "postalCode",
+
+        // 3. Contacto
         "10 TELEFONOS FIJO YO MÓVIL" to "mobilePhone",
         "15 CORREO ELECTRÓNICO" to "email",
-        "39 POBLACION  DE NACIMIENTO" to "birthCity",
+
+        // 5. Datos del Fallecido (ESTO ES LO QUE TE FALTA)
+        "33 NIFNIE" to "deceasedDocumentId",
+        "34 PRIMER APELLIDO DE LA PERSONA FALLECIDA" to "deceasedSurname1",
+        "35 SEGUNDO APELLIDO" to "deceasedSurname2",
+        "36 NOMBRE" to "deceasedName",
+        "37 FECHA DE DEFUNCIÓN" to "deathDate",
+        "38 POBLACIÓN DE DEFUNCIÓN" to "deathCity",
+        "39 POBLACION  DE NACIMIENTO" to "birthCity", // Con doble espacio técnico
+
+        // 8. Tipo certificado
         "18 Últimas voluntades" to "certificateType"
     )
 
