@@ -1,7 +1,5 @@
 package com.ceropapeleo.backend
 
-package com.ceropapeleo.backend
-
 import com.ceropapeleo.backend.services.PdfService
 import com.ceropapeleo.backend.routes.pdfRoutes
 import io.ktor.serialization.kotlinx.json.*
