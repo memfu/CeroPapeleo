@@ -53,7 +53,7 @@ data class Contact(
  * Entidad u organismo al que se dirige el certificado generado.
  */
 data class Destination(
-    val country: String = "España",
+    val country: String = "",
     val authorityOrEntity: String = ""
 )
 
