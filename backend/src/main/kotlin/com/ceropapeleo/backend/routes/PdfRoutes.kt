@@ -3,6 +3,7 @@ package com.ceropapeleo.backend.routes
 import com.ceropapeleo.backend.services.PdfService
 import com.ceropapeleo.backend.logic.PdfMapper
 import com.ceropapeleo.backend.dto.ErrorResponse
+import com.ceropapeleo.backend.dto.FieldError
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -11,88 +12,74 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
-import kotlinx.serialization.json.Json
+import java.io.File
 
 fun Route.pdfRoutes(pdfService: PdfService) {
 
     /**
-     * TAREA 1: Inspeccionar campos de un PDF.
+     * TAREA 1: Inspección de campos (vía archivo físico)
      */
     post("/inspect-pdf") {
-        try {
-            val multipart = call.receiveMultipart()
-            var pdfBytes: ByteArray? = null
+        val multipart = call.receiveMultipart()
+        var pdfBytes: ByteArray? = null
 
-            multipart.forEachPart { part ->
-                if (part is PartData.FileItem && part.name == "pdf_file") {
-                    pdfBytes = part.provider().readRemaining().readByteArray()
-                }
-                part.dispose()
+        multipart.forEachPart { part ->
+            if (part is PartData.FileItem) {
+                pdfBytes = part.provider().readRemaining().readByteArray()
             }
-
-            if (pdfBytes == null) {
-                return@post call.respond(
-                    HttpStatusCode.BadRequest,
-                    ErrorResponse(errorCode = "NO_FILE", message = "No se ha recibido el archivo PDF.")
-                )
-            }
-
-            val fields = pdfService.inspectPdfFields(pdfBytes!!.inputStream())
-            call.respond(HttpStatusCode.OK, fields)
-
-        } catch (e: Exception) {
-            application.log.error("Error en /inspect-pdf", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse(errorCode = "SERVER_ERROR", message = e.message ?: "Error interno")
-            )
+            part.dispose()
         }
+
+        if (pdfBytes == null) {
+            return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse(errorCode = "NO_FILE", message = "Falta el PDF"))
+        }
+
+        val fields = pdfService.inspectPdfFields(pdfBytes!!.inputStream())
+        call.respond(HttpStatusCode.OK, fields)
     }
 
     /**
-     * TAREA 2: Rellenar PDF oficial con Mapping Inteligente.
+     * TAREA 2: Rellenar PDF externo (vía Multipart)
      */
     post("/fill-pdf") {
+        // En desarrollo si se necesitara para otros modelos
+        call.respond(HttpStatusCode.NotImplemented, "Utilizar /generate para el Modelo 790 oficial")
+    }
+
+    /**
+     * TAREA 3: Generación Automática Modelo 790 (La que usa Cris desde el Frontend)
+     */
+    post("/generate") {
         try {
-            val multipart = call.receiveMultipart()
-            var pdfBytes: ByteArray? = null
-            var userDataJson: String? = null
+            val userData = call.receive<Map<String, String>>()
 
-            multipart.forEachPart { part ->
-                when (part) {
-                    is PartData.FileItem -> {
-                        if (part.name == "pdf_file") pdfBytes = part.provider().readRemaining().readByteArray()
-                    }
-                    is PartData.FormItem -> {
-                        if (part.name == "user_data") userDataJson = part.value
-                    }
-                    else -> {}
-                }
-                part.dispose()
+            // Validación de campos
+            val obligatorios = listOf("documentId", "name", "surname1", "city", "postalCode")
+            val faltantes = obligatorios.filter { userData[it].isNullOrBlank() }
+
+            if (faltantes.isNotEmpty()) {
+                val detalles = faltantes.map { FieldError(it, "Campo obligatorio") }
+                return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse(
+                    errorCode = "VALIDATION_ERROR",
+                    message = "Faltan datos obligatorios",
+                    errors = detalles
+                ))
             }
 
-            if (pdfBytes == null || userDataJson == null) {
-                return@post call.respond(
-                    HttpStatusCode.BadRequest,
-                    ErrorResponse(errorCode = "MISSING_DATA", message = "Falta el PDF o los datos JSON.")
-                )
+            val templateFile = File("formulario-790-006_es_es.pdf")
+            if (!templateFile.exists()) {
+                return@post call.respond(HttpStatusCode.InternalServerError, ErrorResponse(errorCode = "FILE_NOT_FOUND", message = "Plantilla PDF ausente"))
             }
 
-            // Parseo y Mapping
-            val rawData: Map<String, String> = Json.decodeFromString(userDataJson!!)
-            val translatedData = PdfMapper.transformToPdfFields(rawData)
+            // Mapeo y generación
+            val translatedData = PdfMapper.transformToPdfFields(userData)
+            val pdfResult = pdfService.fillPdfForm(templateFile.inputStream(), translatedData)
 
-            // Procesado con PDFBox
-            val filledPdfBytes = pdfService.fillPdfForm(pdfBytes!!.inputStream(), translatedData)
-
-            call.respondBytes(filledPdfBytes, ContentType.Application.Pdf, HttpStatusCode.OK)
+            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"Modelo790.pdf\"")
+            call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.Created)
 
         } catch (e: Exception) {
-            application.log.error("Error en /fill-pdf", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse(errorCode = "PROCESSING_ERROR", message = e.message ?: "Fallo al rellenar PDF")
-            )
+            call.respond(HttpStatusCode.InternalServerError, ErrorResponse(errorCode = "SERVER_ERROR", message = e.message ?: "Error desconocido"))
         }
     }
 }
