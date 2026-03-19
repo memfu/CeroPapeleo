@@ -1,5 +1,7 @@
 package com.ceropapeleo.backend
 
+package com.ceropapeleo.backend
+
 import com.ceropapeleo.backend.services.PdfService
 import com.ceropapeleo.backend.routes.pdfRoutes
 import io.ktor.serialization.kotlinx.json.*
@@ -22,17 +24,12 @@ fun Application.module() {
     install(ContentNegotiation) { json() }
     install(CallLogging)
 
-    // 2. Dependencias: Instanciamos el servicio una sola vez
+    // 2. Dependencias: Instanciamos el servicio (el de la carpeta 'services' con S)
     val pdfService = PdfService()
 
     // 3. Rutas: Conectamos los módulos de endpoints
     routing {
-        // Aquí registramos tus rutas de PDF
         pdfRoutes(pdfService)
-
-        // El día de mañana, aquí se registrará:
-        // authRoutes()
-        // userRoutes()
     }
 
     logger.info("🚀 Backend de CeroPapeleo arrancado correctamente")
