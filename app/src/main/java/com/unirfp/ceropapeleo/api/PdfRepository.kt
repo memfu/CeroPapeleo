@@ -24,7 +24,11 @@ class PdfRepository(private val apiService: PdfApiService = ApiClient.pdfApiServ
             // 3. Llamada
             val response = apiService.fillPdf(pdfPart, userDataPart)
 
-            return if (response.isSuccessful) response.body() else null
+            if (!response.isSuccessful) {
+                println("ERROR BACKEND: ${response.code()} - ${response.errorBody()?.string()}")
+            }
+
+            return response.body()
         } catch (e: Exception) {
             e.printStackTrace()
             return null
