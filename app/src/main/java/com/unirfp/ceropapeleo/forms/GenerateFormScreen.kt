@@ -23,29 +23,72 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.unirfp.ceropapeleo.api.PdfRepository
 import com.unirfp.ceropapeleo.model.GenerateRequest
+import kotlinx.coroutines.launch
+import android.os.Environment
+import android.widget.Toast
+import com.unirfp.ceropapeleo.api.UserDataMapper
+import com.unirfp.ceropapeleo.utils.DownloadUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import android.util.Log
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.ResolverStyle
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.ExperimentalFoundationApi
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
+import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun GenerateFormScreen(navController: NavController) {
     var formData by remember { mutableStateOf(GenerateRequest()) }
     val scrollState = rememberScrollState()
     var showErrors by remember { mutableStateOf(false) }
-    // Estados locales para trocear la fecha de la firma
-    var daySign by remember { mutableStateOf("") }
-    var monthSign by remember { mutableStateOf("") }
-    var yearSign by remember { mutableStateOf("") } // Solo 2 dígitos porque el 790 ya tiene los 2 primeros
-    // Estados para el pago (Añadir al inicio con los demás "remember")
+    val deathDateRequester = remember { BringIntoViewRequester() }
+    val emailRequester = remember { BringIntoViewRequester() }
+    val signatureRequester = remember { BringIntoViewRequester() }
+    val nameRequester = remember { BringIntoViewRequester() }
+    val firstSurnameRequester = remember { BringIntoViewRequester() }
+    val documentIdRequester = remember { BringIntoViewRequester() }
+    val streetRequester = remember { BringIntoViewRequester() }
+    val postalCodeRequester = remember { BringIntoViewRequester() }
+    val cityRequester = remember { BringIntoViewRequester() }
+    val provinceRequester = remember { BringIntoViewRequester() }
+    val countryRequester = remember { BringIntoViewRequester() }
+    val deceasedNameRequester = remember { BringIntoViewRequester() }
+    val deceasedFirstSurnameRequester = remember { BringIntoViewRequester() }
+    val signaturePlaceRequester = remember { BringIntoViewRequester() }
+
+    // Estados para el pago
     var selectedPaymentMethod by remember { mutableStateOf("CASH") } // "CASH" o "ACCOUNT"
     var bankEnt by remember { mutableStateOf("") }
     var bankOff by remember { mutableStateOf("") }
     var bankDC by remember { mutableStateOf("") }
     var bankAcc by remember { mutableStateOf("") }
+
+    // Para poder lanzar la petición:
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val repository = remember { PdfRepository() }
 
     // --- HELPERS DE VALIDACIÓN / SANEADO ---
 
@@ -62,30 +105,124 @@ fun GenerateFormScreen(navController: NavController) {
     fun String.sanitizeAlphanumeric(max: Int): String =
         this.filter { it.isLetterOrDigit() }.take(max)
 
-    fun String.isValidSpanishDate(): Boolean {
-        val regex = Regex("^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\\d{4}$")
-        return regex.matches(this)
+    val spanishDateFormatter: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("dd/MM/uuuu")
+            .withResolverStyle(ResolverStyle.STRICT)
+
+    fun String.toLocalDateOrNull(): LocalDate? {
+        return try {
+            LocalDate.parse(this, spanishDateFormatter)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    fun String.isValidSpanishDate(): Boolean = this.toLocalDateOrNull() != null
+
+    // Para permitir solo un año por adelantado para la fecha de la firma
+    val todayMillis = remember {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        calendar.timeInMillis
+    }
+
+    val oneYearFromTodayMillis = remember {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        calendar.add(java.util.Calendar.YEAR, 1)
+        calendar.timeInMillis
     }
 
     val email = formData.applicant.contact.email
 
-    val isEmailValid = email.isNotBlank() &&
+    val isEmailValid = email.isBlank() ||
             android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
+    // Estados "touched" para validar campos al "tocarlos" y no introducir datos válidos
+    var birthDateTouched by remember { mutableStateOf(false) }
+    var deathDateTouched by remember { mutableStateOf(false) }
+    var willDateTouched by remember { mutableStateOf(false) }
+    var emailTouched by remember { mutableStateOf(false) }
+
+    // Validación cronológica de fechas de nacimiento, defunción y testamento
+    val birthDateValue = formData.deathRelatedDetails.deceased.birthDate
+    val deathDateValue = formData.deathRelatedDetails.deceased.deathDate
+    val willDateValue = formData.deathRelatedDetails.lastWillExtra.willDate
+
+    val birthDateParsed = birthDateValue.toLocalDateOrNull()
+    val deathDateParsed = deathDateValue.toLocalDateOrNull()
+    val willDateParsed = willDateValue.toLocalDateOrNull()
+
+    val isBirthBeforeDeath =
+        birthDateParsed == null || deathDateParsed == null || birthDateParsed.isBefore(deathDateParsed)
+
+    val isWillBeforeDeath =
+        willDateParsed == null || deathDateParsed == null || willDateParsed.isBefore(deathDateParsed)
+
+    val isBirthBeforeWill =
+        birthDateParsed == null || willDateParsed == null || birthDateParsed.isBefore(willDateParsed)
+
+    val birthDateError = when {
+        birthDateValue.isBlank() -> null
+        !birthDateValue.isValidSpanishDate() -> "Fecha de nacimiento inválida"
+        !isBirthBeforeDeath -> "La fecha de nacimiento debe ser anterior a la de defunción"
+        !isBirthBeforeWill -> "La fecha de nacimiento debe ser anterior a la del testamento"
+        else -> null
+    }
+
+    val deathDateError = when {
+        deathDateValue.isBlank() -> "Campo obligatorio"
+        !deathDateValue.isValidSpanishDate() -> "Fecha de defunción inválida"
+        !isBirthBeforeDeath -> "La fecha de defunción debe ser posterior a la de nacimiento"
+        !isWillBeforeDeath -> "La fecha de defunción debe ser posterior a la del testamento"
+        else -> null
+    }
+
+    val willDateError = when {
+        willDateValue.isBlank() -> null
+        !willDateValue.isValidSpanishDate() -> "Fecha del testamento inválida"
+        !isWillBeforeDeath -> "La fecha del testamento debe ser anterior a la de defunción"
+        !isBirthBeforeWill -> "La fecha del testamento debe ser posterior a la de nacimiento"
+        else -> null
+    }
+
+    val isSignatureDateValid = formData.signature.date.isValidSpanishDate()
+
+    // Para el CP
+    val postalCode = formData.applicant.address.postalCode
+    val countryNormalized = formData.applicant.address.country.trim().lowercase()
+
+    val isPostalCodeValid = when (countryNormalized) {
+        "españa", "spain" -> postalCode.length == 5
+        else -> postalCode.isNotBlank()
+    }
 
     // --- LÓGICA DE VALIDACIÓN GLOBAL ---
     val isFormValid = formData.applicant.name.isNotBlank() &&
             formData.applicant.firstSurname.isNotBlank() &&
             formData.applicant.documentId.isNotBlank() &&
+            formData.applicant.address.street.isNotBlank() &&
             formData.applicant.address.city.isNotBlank() &&
             formData.applicant.address.province.isNotBlank() &&
             formData.applicant.address.country.isNotBlank() &&
             formData.deathRelatedDetails.deceased.name.isNotBlank() &&
             formData.deathRelatedDetails.deceased.firstSurname.isNotBlank() &&
             formData.deathRelatedDetails.deceased.deathDate.isValidSpanishDate() &&
+            (formData.deathRelatedDetails.deceased.birthDate.isBlank() ||
+                    formData.deathRelatedDetails.deceased.birthDate.isValidSpanishDate()) &&
+            (formData.deathRelatedDetails.lastWillExtra.willDate.isBlank() ||
+                    formData.deathRelatedDetails.lastWillExtra.willDate.isValidSpanishDate()) &&
+            birthDateError == null &&
+            deathDateError == null &&
+            willDateError == null &&
             formData.signature.place.isNotBlank() &&
-            daySign.isNotBlank() &&
-            monthSign.isNotBlank() &&
-            yearSign.length == 2 &&
+            isSignatureDateValid &&
+            isPostalCodeValid &&
             isEmailValid
 
     Scaffold(
@@ -114,7 +251,10 @@ fun GenerateFormScreen(navController: NavController) {
                 },
                 label = "Nombre*",
                 isError = showErrors && formData.applicant.name.isBlank(),
-                maxLength = 30
+                maxLength = 30,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(nameRequester)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -127,7 +267,9 @@ fun GenerateFormScreen(navController: NavController) {
                     },
                     label = "1er apellido*",
                     isError = showErrors && formData.applicant.firstSurname.isBlank(),
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .bringIntoViewRequester(firstSurnameRequester),
                     maxLength = 40
                 )
                 CustomTextField(
@@ -152,10 +294,13 @@ fun GenerateFormScreen(navController: NavController) {
                 },
                 label = "DNI / NIE / Pasaporte*",
                 isError = showErrors && formData.applicant.documentId.isBlank(),
-                maxLength = 15
+                maxLength = 15,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(documentIdRequester)
             )
 
-            // ---  METODO DE RECEPCIÓN ---
+            // ---  MÉTODO DE RECEPCIÓN ---
             FormSectionTitle("2. ¿Dónde desea recibir su certificado?")
 
             CustomTextField(
@@ -170,17 +315,20 @@ fun GenerateFormScreen(navController: NavController) {
                 isError = false,
                 maxLength = 15
             )
-
             CustomTextField(
                 value = email,
                 onValueChange = {
                     val newContact = formData.applicant.contact.copy(email = it.take(60))
                     formData = formData.copy(applicant = formData.applicant.copy(contact = newContact))
                 },
-                label = "Correo electrónico (para recibir por EMAIL)*",
-                isError = showErrors && !isEmailValid,
+                label = "Correo electrónico (para recibir por EMAIL)",
+                isError = (emailTouched || showErrors) && !isEmailValid,
                 errorMessage = "Introduce un email válido",
-                maxLength = 60
+                onBlur = { emailTouched = true },
+                maxLength = 60,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(emailRequester)
             )
 
             // --- 3. DOMICILIO DEL SOLICITANTE ---
@@ -197,7 +345,10 @@ fun GenerateFormScreen(navController: NavController) {
                 },
                 label = "Calle/Plaza/Avenida*",
                 isError = showErrors && formData.applicant.address.street.isBlank(),
-                maxLength = 60
+                maxLength = 60,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(streetRequester)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -258,16 +409,29 @@ fun GenerateFormScreen(navController: NavController) {
                 CustomTextField(
                     value = formData.applicant.address.postalCode,
                     onValueChange = {
+                        val sanitizedPostalCode = when (countryNormalized) {
+                            "españa", "spain" -> it.filter { c -> c.isDigit() }.take(5)
+                            else -> it.filter { c -> c.isLetterOrDigit() || c == ' ' || c == '-' }.take(10)
+                        }
+
                         formData = formData.copy(
                             applicant = formData.applicant.copy(
-                                address = formData.applicant.address.copy(postalCode = it.sanitizeDigits(5))
+                                address = formData.applicant.address.copy(postalCode = sanitizedPostalCode)
                             )
                         )
                     },
                     label = "C.P.*",
-                    isError = showErrors && formData.applicant.address.postalCode.isBlank(),
-                    modifier = Modifier.weight(1f),
-                    maxLength = 5
+                    isError = showErrors && !isPostalCodeValid,
+                    errorMessage = when {
+                        postalCode.isBlank() -> "Campo obligatorio"
+                        countryNormalized in listOf("españa", "spain") && postalCode.length != 5 ->
+                            "Debe tener 5 dígitos"
+                        else -> "Código postal inválido"
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .bringIntoViewRequester(postalCodeRequester),
+                    maxLength = if (countryNormalized in listOf("españa", "spain")) 5 else 10
                 )
                 CustomTextField(
                     value = formData.applicant.address.city,
@@ -280,7 +444,9 @@ fun GenerateFormScreen(navController: NavController) {
                     },
                     label = "Municipio*",
                     isError = showErrors && formData.applicant.address.city.isBlank(),
-                    modifier = Modifier.weight(2f),
+                    modifier = Modifier
+                        .weight(2f)
+                        .bringIntoViewRequester(cityRequester),
                     maxLength = 40
                 )
             }
@@ -297,7 +463,9 @@ fun GenerateFormScreen(navController: NavController) {
                     },
                     label = "Provincia*",
                     isError = showErrors && formData.applicant.address.province.isBlank(),
-                    modifier = Modifier.weight(2f),
+                    modifier = Modifier
+                        .weight(2f)
+                        .bringIntoViewRequester(provinceRequester),
                     maxLength = 40
                 )
                 CustomTextField(
@@ -309,9 +477,11 @@ fun GenerateFormScreen(navController: NavController) {
                             )
                         )
                     },
-                    label = "País",
+                    label = "País*",
                     isError = showErrors && formData.applicant.address.country.isBlank(),
-                    modifier = Modifier.weight(2f),
+                    modifier = Modifier
+                        .weight(2f)
+                        .bringIntoViewRequester(countryRequester),
                     maxLength = 40
                 )
             }
@@ -358,7 +528,10 @@ fun GenerateFormScreen(navController: NavController) {
                 },
                 label = "Nombre del fallecido*",
                 isError = showErrors && formData.deathRelatedDetails.deceased.name.isBlank(),
-                maxLength = 30
+                maxLength = 30,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(deceasedNameRequester)
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -375,7 +548,9 @@ fun GenerateFormScreen(navController: NavController) {
                     label = "1er apellido*",
                     isError = showErrors && formData.deathRelatedDetails.deceased.firstSurname.isBlank(),
                     maxLength = 30,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .bringIntoViewRequester(deceasedFirstSurnameRequester)
                 )
                 CustomTextField(
                     value = formData.deathRelatedDetails.deceased.secondSurname,
@@ -395,21 +570,21 @@ fun GenerateFormScreen(navController: NavController) {
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CustomTextField(
+                DatePickerField(
                     value = formData.deathRelatedDetails.deceased.birthDate,
-                    onValueChange = {
-                        val dec = formData.deathRelatedDetails.deceased.copy(
-                            birthDate = it.sanitizeDate()
+                    label = "Fecha de nacimiento",
+                    isError = (birthDateTouched || showErrors) && birthDateError != null,
+                    errorMessage = birthDateError ?: "",
+                    onDateSelected = {
+                        val dec = formData.deathRelatedDetails.deceased.copy(birthDate = it)
+                        formData = formData.copy(
+                            deathRelatedDetails = formData.deathRelatedDetails.copy(deceased = dec)
                         )
-                        formData = formData.copy(deathRelatedDetails = formData.deathRelatedDetails.copy(deceased = dec))
+                        birthDateTouched = true
                     },
-                    label = "F. Nacim. (DD/MM/AAAA)",
-                    isError = showErrors &&
-                            formData.deathRelatedDetails.deceased.birthDate.isNotEmpty() &&
-                            !formData.deathRelatedDetails.deceased.birthDate.isValidSpanishDate(),
-                    modifier = Modifier.weight(1f),
-                    errorMessage = "Formato DD/MM/AAAA",
-                    maxLength = 10
+                    minDateMillis = null,
+                    maxDateMillis = todayMillis,
+                    modifier = Modifier.weight(1f)
                 )
 
                 CustomTextField(
@@ -442,24 +617,24 @@ fun GenerateFormScreen(navController: NavController) {
                 isError = false,
                 maxLength = 15
             )
-
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CustomTextField(
+                DatePickerField(
                     value = formData.deathRelatedDetails.deceased.deathDate,
-                    onValueChange = {
-                        val dec = formData.deathRelatedDetails.deceased.copy(
-                            deathDate = it.sanitizeDate()
+                    label = "Fecha de defunción*",
+                    isError = (deathDateTouched || showErrors) && deathDateError != null,
+                    errorMessage = deathDateError ?: "",
+                    onDateSelected = {
+                        val dec = formData.deathRelatedDetails.deceased.copy(deathDate = it)
+                        formData = formData.copy(
+                            deathRelatedDetails = formData.deathRelatedDetails.copy(deceased = dec)
                         )
-                        formData = formData.copy(deathRelatedDetails = formData.deathRelatedDetails.copy(deceased = dec))
+                        deathDateTouched = true
                     },
-                    label = "F. Defunción (DD/MM/AAAA)",
-                    isError = showErrors &&
-                            formData.deathRelatedDetails.deceased.deathDate.isNotEmpty() &&
-                            !formData.deathRelatedDetails.deceased.deathDate.isValidSpanishDate(),
-                    modifier = Modifier.weight(1f),
-                    errorMessage = "Formato DD/MM/AAAA",
-                    maxLength = 10
+                    minDateMillis = null,
+                    maxDateMillis = todayMillis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .bringIntoViewRequester(deathDateRequester)
                 )
                 CustomTextField(
                     value = formData.deathRelatedDetails.deceased.deathCity,
@@ -479,20 +654,20 @@ fun GenerateFormScreen(navController: NavController) {
 
             // --- 5. DATOS ADICIONALES ---
             FormSectionTitle("6. Datos adicionales si los conoce")
-            CustomTextField(
+            DatePickerField(
                 value = formData.deathRelatedDetails.lastWillExtra.willDate,
-                onValueChange = {
-                    val dec = formData.deathRelatedDetails.lastWillExtra.copy(
-                        willDate = it.sanitizeDate()
+                label = "Fecha del testamento",
+                isError = (willDateTouched || showErrors) && willDateError != null,
+                errorMessage = willDateError ?: "",
+                onDateSelected = {
+                    val dec = formData.deathRelatedDetails.lastWillExtra.copy(willDate = it)
+                    formData = formData.copy(
+                        deathRelatedDetails = formData.deathRelatedDetails.copy(lastWillExtra = dec)
                     )
-                    formData = formData.copy(deathRelatedDetails = formData.deathRelatedDetails.copy(lastWillExtra = dec))
+                    willDateTouched = true
                 },
-                label = "Fecha del testamento (DD/MM/AAAA)",
-                isError = showErrors &&
-                        formData.deathRelatedDetails.lastWillExtra.willDate.isNotEmpty() &&
-                        !formData.deathRelatedDetails.lastWillExtra.willDate.isValidSpanishDate(),
-                errorMessage = "Formato DD/MM/AAAA",
-                maxLength = 10
+                minDateMillis = null,
+                maxDateMillis = todayMillis
             )
             CustomTextField(
                 value = formData.deathRelatedDetails.lastWillExtra.notary,
@@ -530,7 +705,7 @@ fun GenerateFormScreen(navController: NavController) {
                         deathRelatedDetails = formData.deathRelatedDetails.copy(lastWillExtra = dec)
                     )
                 },
-                label = "Apellidos y nombres cónyuge",
+                label = "Apellidos y nombre cónyuge",
                 maxLength = 40
             )
 
@@ -559,46 +734,40 @@ fun GenerateFormScreen(navController: NavController) {
                 },
                 label = "Ciudad de la firma*",
                 isError = showErrors && formData.signature.place.isBlank(),
-                maxLength = 40
+                maxLength = 40,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(signaturePlaceRequester)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(signatureRequester),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text("a", fontSize = 14.sp)
-                CustomTextField(
-                    value = daySign,
-                    onValueChange = { daySign = it.sanitizeDigits(2) },
-                    label = "Día*",
-                    modifier = Modifier.weight(1f),
-                    isError = showErrors && daySign.isBlank(),
-                    maxLength = 2
-                )
-                Text("de", fontSize = 14.sp)
-                CustomTextField(
-                    value = monthSign,
-                    onValueChange = { monthSign = it.sanitizeLetters(12) },
-                    label = "Mes*",
-                    modifier = Modifier.weight(2f),
-                    isError = showErrors && monthSign.isBlank(),
-                    maxLength = 12
-                )
-                Text("de 20", fontSize = 14.sp)
-                CustomTextField(
-                    value = yearSign,
-                    onValueChange = { yearSign = it.sanitizeDigits(2) },
-                    label = "XX*",
-                    modifier = Modifier.weight(1f),
-                    isError = showErrors && yearSign.length < 2,
-                    maxLength = 2
+
+                DatePickerField(
+                    value = formData.signature.date,
+                    label = "Fecha de firma*",
+                    isError = showErrors && !formData.signature.date.isValidSpanishDate(),
+                    errorMessage = "Seleccione una fecha válida",
+                    onDateSelected = {
+                        formData = formData.copy(
+                            signature = formData.signature.copy(date = it)
+                        )
+                    },
+                    minDateMillis = null,
+                    maxDateMillis = oneYearFromTodayMillis,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
-            // --- SECCIÓN: INGRESO Y FORMA DE PAGO ---
+            // --- SECCIÓN INGRESO Y FORMA DE PAGO ---
             FormSectionTitle("9. Ingreso y forma de pago")
 
             OutlinedTextField(
@@ -650,35 +819,55 @@ fun GenerateFormScreen(navController: NavController) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.Top
                 ) {
                     CustomTextField(
                         value = bankEnt,
-                        onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) bankEnt = it },
-                        label = "Entid.*",
+                        onValueChange = {
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankEnt = it
+                        },
+                        label = "Ent.*",
                         modifier = Modifier.weight(1f),
-                        isError = showErrors && bankEnt.length < 4
+                        isError = showErrors && bankEnt.length < 4,
+                        errorMessage = "4 dígitos",
+                        maxLength = 4
                     )
+
                     CustomTextField(
                         value = bankOff,
-                        onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) bankOff = it },
+                        onValueChange = {
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankOff = it
+                        },
                         label = "Ofic.*",
                         modifier = Modifier.weight(1f),
-                        isError = showErrors && bankOff.length < 4
+                        isError = showErrors && bankOff.length < 4,
+                        errorMessage = "4 dígitos",
+                        maxLength = 4
                     )
+
                     CustomTextField(
                         value = bankDC,
-                        onValueChange = { if (it.length <= 2 && it.all { c -> c.isDigit() }) bankDC = it },
+                        onValueChange = {
+                            if (it.length <= 2 && it.all { c -> c.isDigit() }) bankDC = it
+                        },
                         label = "DC*",
-                        modifier = Modifier.weight(0.6f),
-                        isError = showErrors && bankDC.length < 2
+                        modifier = Modifier.weight(0.8f),
+                        isError = showErrors && bankDC.length < 2,
+                        errorMessage = "2 dígitos",
+                        maxLength = 2
                     )
+
                     CustomTextField(
                         value = bankAcc,
-                        onValueChange = { if (it.length <= 10 && it.all { c -> c.isDigit() }) bankAcc = it },
-                        label = "Número de cuenta*",
-                        modifier = Modifier.weight(2f),
-                        isError = showErrors && bankAcc.length < 10
+                        onValueChange = {
+                            if (it.length <= 10 && it.all { c -> c.isDigit() }) bankAcc = it
+                        },
+                        label = "Cuenta*",
+                        modifier = Modifier.weight(1.8f),
+                        isError = showErrors && bankAcc.length < 10,
+                        errorMessage = "10 dígitos",
+                        maxLength = 10
                     )
                 }
             }
@@ -706,18 +895,111 @@ fun GenerateFormScreen(navController: NavController) {
                     onClick = {
                         showErrors = true
 
-                        val fullSignatureDate =
-                            if (daySign.isNotBlank() && monthSign.isNotBlank() && yearSign.length == 2) {
-                                "$daySign/$monthSign/20$yearSign"
-                            } else {
-                                ""
+                        if (!isFormValid) {
+                            scope.launch {
+                                when {
+                                    formData.applicant.name.isBlank() -> nameRequester.bringIntoView()
+                                    formData.applicant.firstSurname.isBlank() -> firstSurnameRequester.bringIntoView()
+                                    formData.applicant.documentId.isBlank() -> documentIdRequester.bringIntoView()
+                                    formData.applicant.address.street.isBlank() -> streetRequester.bringIntoView()
+                                    !isPostalCodeValid -> postalCodeRequester.bringIntoView()
+                                    formData.applicant.address.city.isBlank() -> cityRequester.bringIntoView()
+                                    formData.applicant.address.province.isBlank() -> provinceRequester.bringIntoView()
+                                    formData.applicant.address.country.isBlank() -> countryRequester.bringIntoView()
+                                    !isEmailValid -> emailRequester.bringIntoView()
+                                    formData.deathRelatedDetails.deceased.name.isBlank() -> deceasedNameRequester.bringIntoView()
+                                    formData.deathRelatedDetails.deceased.firstSurname.isBlank() -> deceasedFirstSurnameRequester.bringIntoView()
+                                    deathDateValue.isBlank() || deathDateError != null -> deathDateRequester.bringIntoView()
+                                    formData.signature.place.isBlank() -> signaturePlaceRequester.bringIntoView()
+                                    !isSignatureDateValid -> signatureRequester.bringIntoView()
+                                }
                             }
 
-                        formData = formData.copy(
-                            signature = formData.signature.copy(date = fullSignatureDate)
-                        )
+                            Toast.makeText(
+                                context,
+                                "Hay errores en el formulario. Revise los campos marcados en rojo",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            scope.launch {
+                                try {
+                                    val pdfFile = findLatestDownloadedPdf()
 
-                        if (isFormValid) { /* OK */ }
+                                    if (pdfFile == null || !pdfFile.exists()) {
+                                        Toast.makeText(
+                                            context,
+                                            "No se encontró el PDF oficial en Descargas",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
+
+                                    Toast.makeText(
+                                        context,
+                                        "PDF base encontrado",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    val dataMap = UserDataMapper.toFlatMap(formData)
+
+                                    dataMap.forEach { (key, value) ->
+                                        Log.d("PDF_MAPPING", "$key = $value")
+                                    }
+
+                                    Toast.makeText(
+                                        context,
+                                        "Enviando PDF al backend...",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    val responseBody = withContext(Dispatchers.IO) {
+                                        repository.uploadAndFillPdf(pdfFile, dataMap)
+                                    }
+
+                                    Toast.makeText(
+                                        context,
+                                        if (responseBody != null) "Respuesta PDF recibida" else "Respuesta vacía del backend",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+
+                                    if (responseBody != null) {
+                                        val finalPdf = DownloadUtils.saveApiPdfToDisk(
+                                            context,
+                                            responseBody,
+                                            "Solicitud_Final_${System.currentTimeMillis()}.pdf"
+                                        )
+
+                                        if (finalPdf != null) {
+                                            Toast.makeText(
+                                                context,
+                                                "PDF generado correctamente",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                "Error al guardar el PDF",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "El backend no respondió correctamente",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    Toast.makeText(
+                                        context,
+                                        "Error al generar el PDF",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
                     },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
@@ -727,6 +1009,20 @@ fun GenerateFormScreen(navController: NavController) {
             }
         }
     }
+}
+
+private fun findLatestDownloadedPdf(): File? {
+    val downloadsDir = Environment.getExternalStoragePublicDirectory(
+        Environment.DIRECTORY_DOWNLOADS
+    )
+
+    return downloadsDir.listFiles()
+        ?.filter { file ->
+            file.isFile &&
+                    file.name.startsWith("formulario-790-006_es_es") &&
+                    file.extension.equals("pdf", ignoreCase = true)
+        }
+        ?.maxByOrNull { it.lastModified() }
 }
 
 // --- COMPOSABLES INDEPENDIENTES (FUERA DE GENERATEFORMSCREEN) ---
@@ -739,8 +1035,11 @@ fun CustomTextField(
     isError: Boolean = false,
     errorMessage: String = "Campo obligatorio",
     maxLength: Int = Int.MAX_VALUE,
+    onBlur: (() -> Unit)? = null,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
+    var hadFocus by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = {
@@ -759,6 +1058,95 @@ fun CustomTextField(
                     text = errorMessage,
                     color = MaterialTheme.colorScheme.error
                 )
+            }
+        },
+        modifier = modifier.onFocusChanged { focusState ->
+            if (focusState.isFocused) {
+                hadFocus = true
+            } else if (hadFocus) {
+                onBlur?.invoke()
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerField(
+    value: String,
+    label: String,
+    isError: Boolean = false,
+    errorMessage: String = "Fecha inválida",
+    onDateSelected: (String) -> Unit,
+    minDateMillis: Long? = null,
+    maxDateMillis: Long? = null,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val minYear = minDateMillis?.let {
+            Calendar.getInstance().apply { timeInMillis = it }.get(Calendar.YEAR)
+        } ?: 1900
+
+        val maxYear = maxDateMillis?.let {
+            Calendar.getInstance().apply { timeInMillis = it }.get(Calendar.YEAR)
+        } ?: 2100
+
+        val datePickerState = rememberDatePickerState(
+            yearRange = minYear..maxYear,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val afterMin = minDateMillis?.let { utcTimeMillis >= it } ?: true
+                    val beforeMax = maxDateMillis?.let { utcTimeMillis <= it } ?: true
+                    return afterMin && beforeMax
+                }
+            }
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val selectedMillis = datePickerState.selectedDateMillis
+                        if (selectedMillis != null) {
+                            val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            onDateSelected(formatter.format(Date(selectedMillis)))
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        isError = isError,
+        supportingText = {
+            if (isError) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        trailingIcon = {
+            TextButton(onClick = { showDatePicker = true }) {
+                Text("📅")
             }
         },
         modifier = modifier
