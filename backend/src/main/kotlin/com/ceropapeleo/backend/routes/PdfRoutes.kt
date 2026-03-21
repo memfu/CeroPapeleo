@@ -52,6 +52,14 @@ fun Route.pdfRoutes(pdfService: PdfService) {
 
             // Procesamiento
             val userData: Map<String, String> = Json.decodeFromString(userDataRaw!!)
+
+            // Comprobando como se generan los datos
+            println("========== USER DATA RECIBIDA ==========")
+            userData.forEach { (key, value) ->
+                println("KEY = $key | VALUE = $value")
+            }
+            println("========================================")
+
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
             // Rellenamos el PDF físico que nos ha llegado desde el móvil
@@ -64,7 +72,7 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 
         } catch (e: Exception) {
-            logger.error("💥 Error crítico en /fill-pdf: ${e.message}")
+            logger.error("💥 Error crítico en /fill-pdf", e)
             call.respond(HttpStatusCode.InternalServerError, "Error interno del servidor")
         }
     }
