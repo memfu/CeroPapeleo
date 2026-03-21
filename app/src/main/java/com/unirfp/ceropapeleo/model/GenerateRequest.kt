@@ -63,7 +63,11 @@ data class Destination(
  */
 data class Payment(
     val amountEur: Double = 3.86,
-    val paymentMethod: String = "CASH"
+    val paymentMethod: String = "CASH",
+    val bankEnt: String = "",
+    val bankOff: String = "",
+    val bankDC: String = "",
+    val bankAcc: String = ""
 )
 
 /**

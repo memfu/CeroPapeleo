@@ -1,5 +1,7 @@
 package com.unirfp.ceropapeleo.forms
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -825,7 +827,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankEnt,
                         onValueChange = {
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankEnt = it
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                bankEnt = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankEnt = it)
+                                )
+                            }
                         },
                         label = "Ent.*",
                         modifier = Modifier.weight(1f),
@@ -837,7 +844,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankOff,
                         onValueChange = {
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankOff = it
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                bankOff = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankOff = it)
+                                )
+                            }
                         },
                         label = "Ofic.*",
                         modifier = Modifier.weight(1f),
@@ -849,7 +861,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankDC,
                         onValueChange = {
-                            if (it.length <= 2 && it.all { c -> c.isDigit() }) bankDC = it
+                            if (it.length <= 2 && it.all { c -> c.isDigit() }) {
+                                bankDC = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankDC = it)
+                                )
+                            }
                         },
                         label = "DC*",
                         modifier = Modifier.weight(0.8f),
@@ -861,7 +878,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankAcc,
                         onValueChange = {
-                            if (it.length <= 10 && it.all { c -> c.isDigit() }) bankAcc = it
+                            if (it.length <= 10 && it.all { c -> c.isDigit() }) {
+                                bankAcc = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankAcc = it)
+                                )
+                            }
                         },
                         label = "Cuenta*",
                         modifier = Modifier.weight(1.8f),
@@ -963,18 +985,37 @@ fun GenerateFormScreen(navController: NavController) {
                                     ).show()
 
                                     if (responseBody != null) {
-                                        val finalPdf = DownloadUtils.saveApiPdfToDisk(
+                                        val savedUri = DownloadUtils.saveApiPdfToDisk(
                                             context,
                                             responseBody,
                                             "Solicitud_Final_${System.currentTimeMillis()}.pdf"
                                         )
 
-                                        if (finalPdf != null) {
+                                        if (savedUri != null) {
                                             Toast.makeText(
                                                 context,
-                                                "PDF generado correctamente",
+                                                "PDF guardado en Descargas",
                                                 Toast.LENGTH_LONG
                                             ).show()
+
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(Uri.parse(savedUri), "application/pdf")
+                                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            }
+                                            // En caso de que el dispositivo móvil no tuviera una app para abrir el PDF
+                                            val chooser = Intent.createChooser(intent, "Abrir PDF")
+
+                                            try {
+                                                context.startActivity(chooser)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "No hay aplicación para abrir PDF",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+
+                                            context.startActivity(intent)
                                         } else {
                                             Toast.makeText(
                                                 context,
