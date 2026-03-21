@@ -35,12 +35,12 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 # 1. Datos del solicitante
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
-|---|---|---|---|
-| 1 NIFNIE | applicant.documentId | Sí | DNI/NIE del solicitante |
+| Campo PDF                         | Ruta JSON | Obligatorio | Notas |
+|-----------------------------------|---|---|---|
+| nie                               | applicant.documentId | Sí | DNI/NIE del solicitante |
 | 2 PRIMER APELLIDO DEL SOLICITANTE | applicant.firstSurname | Sí | |
-| 3 SEGUNDO APELLIDO | applicant.secondSurname | No | |
-| 4 NOMBRE | applicant.name | Sí | |
+| 3 SEGUNDO APELLIDO                | applicant.secondSurname | No | |
+| 4 NOMBRE                          | applicant.name | Sí | |
 
 ---
 
