@@ -1,6 +1,6 @@
-# PDF → JSON Mapping v1  
+# PDF → JSON Mapping v2
 Proyecto: CeroPapeleo  
-Fecha: 14/03/2026  
+Fecha: 21/03/2026  
 
 # Alcance
 
