@@ -25,23 +25,35 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             val multipart = call.receiveMultipart()
             var pdfBytes: ByteArray? = null
             var userDataRaw: String? = null
+            var signatureImageBase64: String? = null
 
             // Abrimos el paquete Multipart
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {
                         // Captura el archivo PDF físico enviado por Cris
-                        pdfBytes = part.provider().readRemaining().readByteArray()
-                        logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
+                        if (part.name == "pdf_file") {
+                            pdfBytes = part.provider().readRemaining().readByteArray()
+                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
+                        }
                     }
                     is PartData.FormItem -> {
                         // Captura el JSON de datos. Soporta ambos nombres por si acaso.
                         if (part.name == "userData" || part.name == "user_data") {
                             userDataRaw = part.value
                         }
+
+                        // Captura la firma en Base64 enviada desde la app
+                        if (part.name == "signature") {
+                            signatureImageBase64 = part.value
+                            logger.info(
+                                "🖊️ Firma recibida: ${!signatureImageBase64.isNullOrBlank()} | longitud=${signatureImageBase64?.length ?: 0}"
+                            )
+                        }
                     }
                     else -> part.dispose()
                 }
+                part.dispose()
             }
 
             // Validaciones de seguridad
@@ -63,7 +75,11 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
             // Rellenamos el PDF físico que nos ha llegado desde el móvil
-            val pdfResult = pdfService.fillPdfForm(pdfBytes!!.inputStream(), translatedData)
+            val pdfResult = pdfService.fillPdfForm(
+                pdfBytes!!.inputStream(),
+                translatedData,
+                signatureImageBase64
+            )
 
             logger.info("✅ PDF con número único rellenado con éxito")
 

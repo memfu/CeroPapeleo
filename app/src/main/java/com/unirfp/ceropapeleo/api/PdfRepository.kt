@@ -9,7 +9,12 @@ import okhttp3.ResponseBody
 import java.io.File
 
 class PdfRepository(private val apiService: PdfApiService = ApiClient.pdfApiService) {
-    suspend fun uploadAndFillPdf(file: File, userDataMap: Map<String, String>): ResponseBody? {
+
+    suspend fun uploadAndFillPdf(
+        file: File,
+        userDataMap: Map<String, String>,
+        signatureImageBase64: String?
+    ): ResponseBody? {
         return try {
             val mediaTypePdf = MediaType.parse("application/pdf")
             val requestFile = RequestBody.create(mediaTypePdf, file)
@@ -19,12 +24,25 @@ class PdfRepository(private val apiService: PdfApiService = ApiClient.pdfApiServ
             val mediaTypeJson = MediaType.parse("application/json")
             val userDataPart = RequestBody.create(mediaTypeJson, jsonString)
 
+            val signaturePart = RequestBody.create(
+                MediaType.parse("text/plain"),
+                signatureImageBase64 ?: ""
+            )
+
             Log.d("PDF_API", "URL llamada: fill-pdf")
             Log.d("PDF_API", "Archivo enviado: ${file.absolutePath}")
             Log.d("PDF_API", "Existe archivo: ${file.exists()} | tamaño=${file.length()}")
             Log.d("PDF_API", "JSON enviado: $jsonString")
+            Log.d(
+                "PDF_API",
+                "Firma enviada: ${!signatureImageBase64.isNullOrBlank()} | longitud=${signatureImageBase64?.length ?: 0}"
+            )
 
-            val response = apiService.fillPdf(pdfPart, userDataPart)
+            val response = apiService.fillPdf(
+                pdfPart,
+                userDataPart,
+                signaturePart
+            )
 
             Log.d("PDF_API", "HTTP code: ${response.code()}")
             Log.d("PDF_API", "HTTP message: ${response.message()}")
@@ -40,29 +58,4 @@ class PdfRepository(private val apiService: PdfApiService = ApiClient.pdfApiServ
             null
         }
     }
-    /*suspend fun uploadAndFillPdf(file: File, userDataMap: Map<String, String>): ResponseBody? {
-        try {
-            // 1. Preparar el archivo PDF (Forma compatible universal)
-            val mediaTypePdf = MediaType.parse("application/pdf")
-            val requestFile = RequestBody.create(mediaTypePdf, file)
-            val pdfPart = MultipartBody.Part.createFormData("pdf_file", file.name, requestFile)
-
-            // 2. Preparar el JSON (Forma compatible universal)
-            val jsonString = Gson().toJson(userDataMap)
-            val mediaTypeJson = MediaType.parse("application/json")
-            val userDataPart = RequestBody.create(mediaTypeJson, jsonString)
-
-            // 3. Llamada
-            val response = apiService.fillPdf(pdfPart, userDataPart)
-
-            if (!response.isSuccessful) {
-                println("ERROR BACKEND: ${response.code()} - ${response.errorBody()?.string()}")
-            }
-
-            return response.body()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
-        }
-    }*/
 }

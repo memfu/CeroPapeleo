@@ -110,5 +110,6 @@ data class LastWillExtra(
 data class Signature(
     val place: String = "",
     val date: String = "", // Formato recomendado: YYYY-MM-DD
-    val postalDeliveryAuthorized: Boolean = true
+    val postalDeliveryAuthorized: Boolean = true,
+    val imageBase64: String = ""
 )
