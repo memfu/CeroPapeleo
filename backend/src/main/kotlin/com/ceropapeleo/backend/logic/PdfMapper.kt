@@ -50,6 +50,9 @@ object PdfMapper {
         // 7. Firma
         "FECHA LUGAR" to "signaturePlace",
 
+        //8. Pago
+        "EUROS" to "amountEur",
+
         // 8. Tipo certificado (Tu Regla de Oro)
         "18 Últimas voluntades" to "certificateType"
     )

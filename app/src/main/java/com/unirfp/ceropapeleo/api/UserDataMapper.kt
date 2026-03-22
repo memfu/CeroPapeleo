@@ -53,7 +53,9 @@ object UserDataMapper {
             "postalDeliveryAuthorized" to request.signature.postalDeliveryAuthorized.toString(),
 
             // Pago
-            "amountEur" to request.payment.amountEur.toString(),
+            "amountEur" to request.payment.amountEur
+                .toString()
+                .replace(".", ","),
             "paymentMethod" to request.payment.paymentMethod,
             "bankEnt" to request.payment.bankEnt,
             "bankOff" to request.payment.bankOff,
