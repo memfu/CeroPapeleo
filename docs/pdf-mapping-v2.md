@@ -1,6 +1,6 @@
-# PDF → JSON Mapping v1  
+# PDF → JSON Mapping v2
 Proyecto: CeroPapeleo  
-Fecha: 14/03/2026  
+Fecha: 21/03/2026  
 
 # Alcance
 
@@ -35,12 +35,12 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 # 1. Datos del solicitante
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
-|---|---|---|---|
-| 1 NIFNIE | applicant.documentId | Sí | DNI/NIE del solicitante |
+| Campo PDF                         | Ruta JSON | Obligatorio | Notas |
+|-----------------------------------|---|---|---|
+| nie                               | applicant.documentId | Sí | DNI/NIE del solicitante |
 | 2 PRIMER APELLIDO DEL SOLICITANTE | applicant.firstSurname | Sí | |
-| 3 SEGUNDO APELLIDO | applicant.secondSurname | No | |
-| 4 NOMBRE | applicant.name | Sí | |
+| 3 SEGUNDO APELLIDO                | applicant.secondSurname | No | |
+| 4 NOMBRE                          | applicant.name | Sí | |
 
 ---
 
@@ -110,11 +110,14 @@ Estos campos son **opcionales** y solo se rellenan si el usuario conoce la infor
 
 # 7. Firma
 
-| Campo PDF | Ruta JSON | Obligatorio | Notas |
+| Campo PDF   | Ruta JSON       | Obligatorio | Notas |
 |---|---|---|---|
 | FECHA LUGAR | signature.place | Sí | Lugar de firma |
-| FECHA | signature.date | Sí | Formato recomendado YYYY-MM-DD |
+| FECHA DIA   | signature.date  | Sí | Se extrae el día de `signature.date` en formato `dd/MM/yyyy` |
+| FECHA MES   | signature.date  | Sí | Se extrae el mes de `signature.date` en formato `dd/MM/yyyy` |
+| FECHA       | signature.date  | Sí | Se extraen solo los 2 últimos dígitos del año de `signature.date` |
 
+Nota: `signature.date` se envía como fecha completa (`dd/MM/yyyy`) y en backend se divide en los campos del PDF `FECHA DIA`, `FECHA MES` y `FECHA` (año con 2 dígitos).
 ---
 
 # 8. Tipo de certificado
@@ -130,6 +133,17 @@ Estos campos son **opcionales** y solo se rellenan si el usuario conoce la infor
 | Campo PDF | Ruta JSON | Obligatorio | Notas                  |
 |---|---|---|------------------------|
 | EUROS | payment.amountEur | Sí | Valor por defecto 3.86 |
+
+- CASH → Casilla de verificación7 → valor: "Sí"
+- ACCOUNT → Casilla de verificación8 → valor: "Sí"
+
+---
+
+## Checkboxes especiales
+
+### Autorización de envío postal
+- ACEPTAR → valor: ACEPTARSI
+- DENEGAR → valor: ACEPTARNO
 
 ---
 

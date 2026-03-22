@@ -63,7 +63,11 @@ data class Destination(
  */
 data class Payment(
     val amountEur: Double = 3.86,
-    val paymentMethod: String = "CASH"
+    val paymentMethod: String = "CASH",
+    val bankEnt: String = "",
+    val bankOff: String = "",
+    val bankDC: String = "",
+    val bankAcc: String = ""
 )
 
 /**
@@ -106,5 +110,6 @@ data class LastWillExtra(
 data class Signature(
     val place: String = "",
     val date: String = "", // Formato recomendado: YYYY-MM-DD
-    val postalDeliveryAuthorized: Boolean = true
+    val postalDeliveryAuthorized: Boolean = true,
+    val imageBase64: String = ""
 )

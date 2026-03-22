@@ -1,9 +1,7 @@
 package com.unirfp.ceropapeleo.forms
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,18 +9,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -50,12 +40,18 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.rememberDatePickerState
 import java.util.Calendar
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Color as AndroidColor
+import android.graphics.Paint
+import android.graphics.Path as AndroidPath
+import android.util.Base64
+import android.view.MotionEvent
+import android.view.View
+import androidx.compose.ui.viewinterop.AndroidView
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +85,7 @@ fun GenerateFormScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val repository = remember { PdfRepository() }
+    var signaturePadView by remember { mutableStateOf<SignaturePadView?>(null) }
 
     // --- HELPERS DE VALIDACIÓN / SANEADO ---
 
@@ -222,6 +219,7 @@ fun GenerateFormScreen(navController: NavController) {
             willDateError == null &&
             formData.signature.place.isNotBlank() &&
             isSignatureDateValid &&
+            (signaturePadView?.hasSignature() == true) &&
             isPostalCodeValid &&
             isEmailValid
 
@@ -720,7 +718,19 @@ fun GenerateFormScreen(navController: NavController) {
             }
 
             // LLAMADA A LA FIRMA
-            SignaturePad()
+            SignaturePad(
+                onSignatureChanged = {
+                    // La firma se ha modificado, pero no exportamos aún a Base64
+                },
+                onSignatureCleared = {
+                    formData = formData.copy(
+                        signature = formData.signature.copy(imageBase64 = "")
+                    )
+                },
+                onPadReady = { view ->
+                    signaturePadView = view
+                }
+            )
 
             // --- APARTADO: LUGAR Y FECHA DE LA FIRMA ---
             FormSectionTitle("8. Lugar y fecha de la firma")
@@ -825,7 +835,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankEnt,
                         onValueChange = {
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankEnt = it
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                bankEnt = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankEnt = it)
+                                )
+                            }
                         },
                         label = "Ent.*",
                         modifier = Modifier.weight(1f),
@@ -837,7 +852,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankOff,
                         onValueChange = {
-                            if (it.length <= 4 && it.all { c -> c.isDigit() }) bankOff = it
+                            if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                                bankOff = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankOff = it)
+                                )
+                            }
                         },
                         label = "Ofic.*",
                         modifier = Modifier.weight(1f),
@@ -849,7 +869,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankDC,
                         onValueChange = {
-                            if (it.length <= 2 && it.all { c -> c.isDigit() }) bankDC = it
+                            if (it.length <= 2 && it.all { c -> c.isDigit() }) {
+                                bankDC = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankDC = it)
+                                )
+                            }
                         },
                         label = "DC*",
                         modifier = Modifier.weight(0.8f),
@@ -861,7 +886,12 @@ fun GenerateFormScreen(navController: NavController) {
                     CustomTextField(
                         value = bankAcc,
                         onValueChange = {
-                            if (it.length <= 10 && it.all { c -> c.isDigit() }) bankAcc = it
+                            if (it.length <= 10 && it.all { c -> c.isDigit() }) {
+                                bankAcc = it
+                                formData = formData.copy(
+                                    payment = formData.payment.copy(bankAcc = it)
+                                )
+                            }
                         },
                         label = "Cuenta*",
                         modifier = Modifier.weight(1.8f),
@@ -940,7 +970,17 @@ fun GenerateFormScreen(navController: NavController) {
                                         Toast.LENGTH_SHORT
                                     ).show()
 
-                                    val dataMap = UserDataMapper.toFlatMap(formData)
+                                    val signatureBase64 = signaturePadView?.exportSignatureBase64().orEmpty()
+
+                                    formData = formData.copy(
+                                        signature = formData.signature.copy(imageBase64 = signatureBase64)
+                                    )
+
+                                    val updatedFormData = formData.copy(
+                                        signature = formData.signature.copy(imageBase64 = signatureBase64)
+                                    )
+
+                                    val dataMap = UserDataMapper.toFlatMap(updatedFormData)
 
                                     dataMap.forEach { (key, value) ->
                                         Log.d("PDF_MAPPING", "$key = $value")
@@ -953,7 +993,11 @@ fun GenerateFormScreen(navController: NavController) {
                                     ).show()
 
                                     val responseBody = withContext(Dispatchers.IO) {
-                                        repository.uploadAndFillPdf(pdfFile, dataMap)
+                                        repository.uploadAndFillPdf(
+                                            pdfFile,
+                                            dataMap,
+                                            signatureBase64
+                                        )
                                     }
 
                                     Toast.makeText(
@@ -963,18 +1007,36 @@ fun GenerateFormScreen(navController: NavController) {
                                     ).show()
 
                                     if (responseBody != null) {
-                                        val finalPdf = DownloadUtils.saveApiPdfToDisk(
+                                        val savedUri = DownloadUtils.saveApiPdfToDisk(
                                             context,
                                             responseBody,
                                             "Solicitud_Final_${System.currentTimeMillis()}.pdf"
                                         )
 
-                                        if (finalPdf != null) {
+                                        if (savedUri != null) {
                                             Toast.makeText(
                                                 context,
-                                                "PDF generado correctamente",
+                                                "PDF guardado en Descargas",
                                                 Toast.LENGTH_LONG
                                             ).show()
+
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(Uri.parse(savedUri), "application/pdf")
+                                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            }
+                                            // En caso de que el dispositivo móvil no tuviera una app para abrir el PDF
+                                            val chooser = Intent.createChooser(intent, "Abrir PDF")
+
+                                            try {
+                                                context.startActivity(chooser)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "No hay aplicación para abrir PDF",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+
                                         } else {
                                             Toast.makeText(
                                                 context,
@@ -1117,12 +1179,12 @@ fun DatePickerField(
                         showDatePicker = false
                     }
                 ) {
-                    Text("Aceptar")
+                    Text("OK")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         ) {
@@ -1130,27 +1192,39 @@ fun DatePickerField(
         }
     }
 
-    OutlinedTextField(
-        value = value,
-        onValueChange = {},
-        readOnly = true,
-        label = { Text(label) },
-        isError = isError,
-        supportingText = {
-            if (isError) {
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        trailingIcon = {
-            TextButton(onClick = { showDatePicker = true }) {
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            isError = isError,
+            supportingText = {
+                if (isError) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            trailingIcon = {
                 Text("📅")
-            }
-        },
-        modifier = modifier
-    )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(bottom = if (isError) 24.dp else 0.dp)
+        ) {
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                color = Color.Transparent,
+                onClick = { showDatePicker = true }
+            ) {}
+        }
+    }
 }
 
 @Composable
@@ -1181,82 +1255,165 @@ fun Modifier.drawScrollbar(state: androidx.compose.foundation.ScrollState): Modi
     }
 }
 
+
 @Composable
 fun SignaturePad(
     modifier: Modifier = Modifier
         .fillMaxWidth()
-        .height(200.dp)
+        .height(200.dp),
+    onSignatureChanged: () -> Unit,
+    onSignatureCleared: () -> Unit = {},
+    onPadReady: (SignaturePadView) -> Unit = {}
 ) {
-    val path = remember { Path() }
-    val drawTrigger = remember { mutableStateOf(0) }
-    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    var signatureView by remember { mutableStateOf<SignaturePadView?>(null) }
 
     Column {
         Text(
             text = "Dibuje su firma aquí:",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
-        Box(
-            modifier = modifier
-                .clip(MaterialTheme.shapes.small)
-                .background(Color.White, shape = MaterialTheme.shapes.small)
-                .border(1.dp, Color.Gray, shape = MaterialTheme.shapes.small)
-                .onSizeChanged { size ->
-                    canvasSize = size
+        AndroidView(
+            modifier = modifier,
+            factory = { context ->
+                SignaturePadView(context).also { view ->
+                    signatureView = view
+                    onPadReady(view)
+
+                    view.onSigned = {
+                        onSignatureChanged()
+                    }
+
+                    view.onCleared = {
+                        onSignatureCleared()
+                    }
                 }
-                .pointerInput(canvasSize) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val inside =
-                                offset.x in 0f..canvasSize.width.toFloat() &&
-                                        offset.y in 0f..canvasSize.height.toFloat()
-
-                            if (inside) {
-                                path.moveTo(offset.x, offset.y)
-                                drawTrigger.value++
-                            }
-                        },
-                        onDrag = { change, _ ->
-                            val x = change.position.x
-                            val y = change.position.y
-
-                            val inside =
-                                x in 0f..canvasSize.width.toFloat() &&
-                                        y in 0f..canvasSize.height.toFloat()
-
-                            if (inside) {
-                                path.lineTo(x, y)
-                                drawTrigger.value++
-                            }
-                        }
-                    )
-                }
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawTrigger.value
-                drawPath(
-                    path = path,
-                    color = Color.Black,
-                    style = Stroke(
-                        width = 4f,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
-                )
             }
-        }
+        )
 
         TextButton(
             onClick = {
-                path.reset()
-                drawTrigger.value++
+                signatureView?.clear()
+                onSignatureCleared()
             },
-            modifier = Modifier.align(androidx.compose.ui.Alignment.End)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Limpiar firma", color = Color.Red)
+            Text("Limpiar firma")
         }
+    }
+}
+
+class SignaturePadView(context: Context) : View(context) {
+
+    private val paint = Paint().apply {
+        color = AndroidColor.BLACK
+        style = Paint.Style.STROKE
+        strokeWidth = 6f
+        isAntiAlias = true
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+
+    private val borderPaint = Paint().apply {
+        color = AndroidColor.LTGRAY
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        isAntiAlias = true
+    }
+
+    private val path = AndroidPath()
+    private var hasSignature = false
+
+    private var lastX = 0f
+    private var lastY = 0f
+
+    var onSigned: (() -> Unit)? = null
+    var onCleared: (() -> Unit)? = null
+
+    init {
+        setBackgroundColor(AndroidColor.WHITE)
+    }
+
+    override fun onDraw(canvas: AndroidCanvas) {
+        super.onDraw(canvas)
+
+        // Caja visual de firma SOLO en la app
+        val padding = 16f
+        val left = padding
+        val top = padding
+        val right = width - padding
+        val bottom = height - padding
+
+        canvas.drawRect(left, top, right, bottom, borderPaint)
+        canvas.drawPath(path, paint)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val padding = 16f
+        val minX = padding
+        val minY = padding
+        val maxX = width - padding
+        val maxY = height - padding
+
+        val x = event.x.coerceIn(minX, maxX)
+        val y = event.y.coerceIn(minY, maxY)
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                parent?.requestDisallowInterceptTouchEvent(true)
+                path.moveTo(x, y)
+                lastX = x
+                lastY = y
+                hasSignature = true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                parent?.requestDisallowInterceptTouchEvent(true)
+                val midX = (lastX + x) / 2f
+                val midY = (lastY + y) / 2f
+                path.quadTo(lastX, lastY, midX, midY)
+                lastX = x
+                lastY = y
+            }
+            MotionEvent.ACTION_UP -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
+                path.lineTo(x, y)
+                onSigned?.invoke()
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+        }
+
+        invalidate()
+        return true
+    }
+
+    fun clear() {
+        path.reset()
+        hasSignature = false
+        invalidate()
+        onCleared?.invoke()
+    }
+
+    fun hasSignature(): Boolean = hasSignature
+
+    fun exportSignatureBase64(): String? {
+        if (!hasSignature || width <= 0 || height <= 0) return null
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = AndroidCanvas(bitmap)
+
+        // Fondo transparente
+        canvas.drawColor(AndroidColor.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+
+        // La caja NO se exporta al PDF, solo la firma
+        canvas.drawPath(path, paint)
+
+        val outputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+        val bytes = outputStream.toByteArray()
+
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }

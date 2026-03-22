@@ -5,8 +5,9 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import okhttp3.ResponseBody
-import java.io.File
-import java.io.FileOutputStream
+import android.content.ContentValues
+import android.provider.MediaStore
+import java.io.OutputStream
 
 object DownloadUtils {
 
@@ -34,17 +35,38 @@ object DownloadUtils {
     }
 
     // FUNCION Para el PDF que devuelve Retrofit tras el POST /fill-pdf)
-    fun saveApiPdfToDisk(context: Context, body: ResponseBody, fileName: String): File? {
+    fun saveApiPdfToDisk(
+        context: Context,
+        responseBody: ResponseBody,
+        fileName: String
+    ): String? {
         return try {
-            // Usamos carpeta de la App para evitar problemas de permisos en Android 13+
-            val destinationFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+            val resolver = context.contentResolver
 
-            body.byteStream().use { input ->
-                FileOutputStream(destinationFile).use { output ->
-                    input.copyTo(output)
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+            }
+
+            val uri = resolver.insert(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                contentValues
+            ) ?: return null
+
+            val outputStream: OutputStream? = resolver.openOutputStream(uri)
+
+            outputStream.use { output ->
+                if (output != null) {
+                    responseBody.byteStream().copyTo(output)
                 }
             }
-            destinationFile
+
+            uri.toString()
+
         } catch (e: Exception) {
             e.printStackTrace()
             null

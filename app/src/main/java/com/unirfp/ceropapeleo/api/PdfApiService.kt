@@ -9,10 +9,12 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 
 interface PdfApiService {
+
     @Multipart
     @POST("fill-pdf")
     suspend fun fillPdf(
-        @Part pdf_file: MultipartBody.Part,
-        @Part("user_data") user_data: RequestBody
+        @Part pdfFile: MultipartBody.Part,
+        @Part("user_data") userData: RequestBody,
+        @Part("signature") signature: RequestBody
     ): Response<ResponseBody>
 }

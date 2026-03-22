@@ -50,10 +50,15 @@ object UserDataMapper {
             // Firma
             "signaturePlace" to request.signature.place,
             "signatureDate" to request.signature.date,
+            "postalDeliveryAuthorized" to request.signature.postalDeliveryAuthorized.toString(),
 
             // Pago
             "amountEur" to request.payment.amountEur.toString(),
             "paymentMethod" to request.payment.paymentMethod,
+            "bankEnt" to request.payment.bankEnt,
+            "bankOff" to request.payment.bankOff,
+            "bankDC" to request.payment.bankDC,
+            "bankAcc" to request.payment.bankAcc,
 
             // Tipo de certificado
             "certificateType" to request.certificateType
