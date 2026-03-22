@@ -1179,12 +1179,12 @@ fun DatePickerField(
                         showDatePicker = false
                     }
                 ) {
-                    Text("Aceptar")
+                    Text("OK")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancelar")
+                    Text("Cancel")
                 }
             }
         ) {
@@ -1192,27 +1192,39 @@ fun DatePickerField(
         }
     }
 
-    OutlinedTextField(
-        value = value,
-        onValueChange = {},
-        readOnly = true,
-        label = { Text(label) },
-        isError = isError,
-        supportingText = {
-            if (isError) {
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        },
-        trailingIcon = {
-            TextButton(onClick = { showDatePicker = true }) {
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            isError = isError,
+            supportingText = {
+                if (isError) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            trailingIcon = {
                 Text("📅")
-            }
-        },
-        modifier = modifier
-    )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(bottom = if (isError) 24.dp else 0.dp)
+        ) {
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                color = Color.Transparent,
+                onClick = { showDatePicker = true }
+            ) {}
+        }
+    }
 }
 
 @Composable
@@ -1391,7 +1403,9 @@ class SignaturePadView(context: Context) : View(context) {
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = AndroidCanvas(bitmap)
-        canvas.drawColor(AndroidColor.WHITE)
+
+        // Fondo transparente
+        canvas.drawColor(AndroidColor.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
 
         // La caja NO se exporta al PDF, solo la firma
         canvas.drawPath(path, paint)
