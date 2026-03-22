@@ -56,34 +56,67 @@ class PdfService {
                     try {
                         val cleanBase64 = signatureImageBase64.substringAfter("base64,", signatureImageBase64)
                         val imageBytes = Base64.getDecoder().decode(cleanBase64)
-
                         val pdImage = PDImageXObject.createFromByteArray(
                             document,
                             imageBytes,
                             "signature"
                         )
 
-                        val page = document.getPage(0)
+                        // AJUSTAR estas coordenadas tras probar
+                        val signatureX = 90f
+                        val signatureY = 95f
+                        val signatureMaxWidth = 140f
+                        val signatureMaxHeight = 28f
 
-                        PDPageContentStream(
-                            document,
-                            page,
-                            PDPageContentStream.AppendMode.APPEND,
-                            true,
-                            true
-                        ).use { contentStream ->
-                            contentStream.drawImage(
-                                pdImage,
-                                330f, // x
-                                145f, // y
-                                140f, // width
-                                45f   // height
-                            )
+                        val imageWidth = pdImage.width.toFloat()
+                        val imageHeight = pdImage.height.toFloat()
+                        val imageAspectRatio = imageWidth / imageHeight
+
+                        val boxAspectRatio = signatureMaxWidth / signatureMaxHeight
+
+                        val finalSignatureWidth: Float
+                        val finalSignatureHeight: Float
+
+                        if (imageAspectRatio > boxAspectRatio) {
+                            finalSignatureWidth = signatureMaxWidth
+                            finalSignatureHeight = signatureMaxWidth / imageAspectRatio
+                        } else {
+                            finalSignatureHeight = signatureMaxHeight
+                            finalSignatureWidth = signatureMaxHeight * imageAspectRatio
                         }
 
-                        logger.info("Firma incrustada en el PDF correctamente")
+                        val finalSignatureX = signatureX + (signatureMaxWidth - finalSignatureWidth) / 2f
+                        val finalSignatureY = signatureY + (signatureMaxHeight - finalSignatureHeight) / 2f
+
+                        val pagesToSign = minOf(3, document.numberOfPages)
+
+                        for (pageIndex in 0 until pagesToSign) {
+                            val page = document.getPage(pageIndex)
+
+                            logger.info(
+                                "📐 Insertando firma en página $pageIndex (width=${page.mediaBox.width}, height=${page.mediaBox.height})"
+                            )
+
+                            PDPageContentStream(
+                                document,
+                                page,
+                                PDPageContentStream.AppendMode.APPEND,
+                                true,
+                                true
+                            ).use { contentStream ->
+                                contentStream.drawImage(
+                                    pdImage,
+                                    finalSignatureX,
+                                    finalSignatureY,
+                                    finalSignatureWidth,
+                                    finalSignatureHeight
+                                )
+                            }
+                        }
+
+                        logger.info("✅ Firma incrustada en las primeras $pagesToSign páginas del PDF")
                     } catch (e: Exception) {
-                        logger.error("Error al incrustar la firma", e)
+                        logger.error("❌ Error al incrustar la firma", e)
                     }
                 }
 

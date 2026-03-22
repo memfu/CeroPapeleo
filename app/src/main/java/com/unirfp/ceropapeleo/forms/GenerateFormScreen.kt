@@ -1303,8 +1303,16 @@ class SignaturePadView(context: Context) : View(context) {
         strokeJoin = Paint.Join.ROUND
     }
 
+    private val borderPaint = Paint().apply {
+        color = AndroidColor.LTGRAY
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        isAntiAlias = true
+    }
+
     private val path = AndroidPath()
     private var hasSignature = false
+
     private var lastX = 0f
     private var lastY = 0f
 
@@ -1317,12 +1325,27 @@ class SignaturePadView(context: Context) : View(context) {
 
     override fun onDraw(canvas: AndroidCanvas) {
         super.onDraw(canvas)
+
+        // Caja visual de firma SOLO en la app
+        val padding = 16f
+        val left = padding
+        val top = padding
+        val right = width - padding
+        val bottom = height - padding
+
+        canvas.drawRect(left, top, right, bottom, borderPaint)
         canvas.drawPath(path, paint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val x = event.x
-        val y = event.y
+        val padding = 16f
+        val minX = padding
+        val minY = padding
+        val maxX = width - padding
+        val maxY = height - padding
+
+        val x = event.x.coerceIn(minX, maxX)
+        val y = event.y.coerceIn(minY, maxY)
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -1369,6 +1392,8 @@ class SignaturePadView(context: Context) : View(context) {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = AndroidCanvas(bitmap)
         canvas.drawColor(AndroidColor.WHITE)
+
+        // La caja NO se exporta al PDF, solo la firma
         canvas.drawPath(path, paint)
 
         val outputStream = ByteArrayOutputStream()
