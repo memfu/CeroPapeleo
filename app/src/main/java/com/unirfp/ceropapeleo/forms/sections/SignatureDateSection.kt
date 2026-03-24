@@ -53,7 +53,8 @@ fun SignatureDateSection(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(signatureRequester),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
         Text("a", fontSize = 14.sp)
 
