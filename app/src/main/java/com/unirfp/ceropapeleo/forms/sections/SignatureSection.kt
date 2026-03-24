@@ -20,7 +20,9 @@ fun SignatureSection(
     // --- 6. FIRMA ---
     FormSectionTitle("7. Firma y Autorización")
 
-    Row {
+    Row (
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ){
         Checkbox(
             checked = signature.postalDeliveryAuthorized,
             onCheckedChange = {
