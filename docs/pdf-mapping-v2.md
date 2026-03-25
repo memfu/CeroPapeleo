@@ -1,6 +1,6 @@
 # PDF → JSON Mapping v2
 Proyecto: CeroPapeleo  
-Fecha: 21/03/2026  
+Fecha: 25/03/2026  
 
 # Alcance
 
@@ -11,15 +11,6 @@ El formulario 790 contiene campos para **tres certificados distintos**:
 - Antecedentes penales
 - Últimas voluntades
 - Contratos de seguros de cobertura por fallecimiento
-
-En esta versión del proyecto (**MVP**) únicamente se implementa el flujo de:
-
-**CERTIFICADO DE ÚLTIMAS VOLUNTADES (LAST_WILL)**
-
-Por tanto:
-
-- Solo se mapean los campos necesarios para este certificado.
-- Los campos pertenecientes a otras secciones se marcan como **FUERA_MVP**.
 
 ---
 
@@ -78,7 +69,25 @@ La segunda columna corresponde a la ruta del dato en el modelo JSON usado por la
 
 ---
 
-# 5. Datos del fallecido (Bloque Últimas Voluntades)
+# 5. Datos específicos del certificado de antecedentes penales (Bloque 22-32)
+
+| Campo PDF | Ruta JSON | Obligatorio | Notas |
+|---|---|---|---|
+| 22 NIFCIFNIE | criminalRecordsDetails.subjectDocumentId | Sí | DNI/NIE/CIF del titular del certificado |
+| 23 PRIMER APELLIDO O DENOMINACIÓN SOCIAL | criminalRecordsDetails.subjectFirstSurnameOrBusinessName | Sí | Para persona física: primer apellido. Para entidad: denominación social |
+| 24 SEGUNDO APELLIDO | criminalRecordsDetails.subjectSecondSurname | No | |
+| 25 NOMBRE | criminalRecordsDetails.subjectName | Sí | |
+| 26 FECHA DE NACIMIENTO | criminalRecordsDetails.birthDate | No | Formato recomendado dd/MM/yyyy |
+| 27 POBLACIÓN DE NACIMIENTO | criminalRecordsDetails.birthCity | No | |
+| 28 PROVINCIAPAIS DE NACIMIENTO | criminalRecordsDetails.birthProvinceOrCountry | No | |
+| 29 PAÍS DE NACIONALIDAD | criminalRecordsDetails.nationalityCountry | No | |
+| 30 NOMBRE DEL PADRE | criminalRecordsDetails.fatherName | No | |
+| 31 NOMBRE DE LA MADRE | criminalRecordsDetails.motherName | No | |
+| 32 FINALIDAD PARA LA QUE SE SOLICITA | criminalRecordsDetails.purpose | Sí | Motivo de la solicitud |
+
+---
+
+# 6. Datos del fallecido (Bloque Últimas Voluntades)
 
 Los campos correspondientes al difunto se encuentran en el **bloque 33-40 del formulario**.
 
@@ -95,7 +104,7 @@ Los campos correspondientes al difunto se encuentran en el **bloque 33-40 del fo
 
 ---
 
-# 6. Información notarial del testamento
+# 7. Información notarial del testamento
 
 Estos campos son **opcionales** y solo se rellenan si el usuario conoce la información.
 
@@ -108,7 +117,7 @@ Estos campos son **opcionales** y solo se rellenan si el usuario conoce la infor
 
 ---
 
-# 7. Firma
+# 8. Firma
 
 | Campo PDF   | Ruta JSON       | Obligatorio | Notas |
 |---|---|---|---|
@@ -120,15 +129,17 @@ Estos campos son **opcionales** y solo se rellenan si el usuario conoce la infor
 Nota: `signature.date` se envía como fecha completa (`dd/MM/yyyy`) y en backend se divide en los campos del PDF `FECHA DIA`, `FECHA MES` y `FECHA` (año con 2 dígitos).
 ---
 
-# 8. Tipo de certificado
+# 9. Tipo de certificado
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas |
 |---|---|---|---|
+| 17 Antecedentes Penales | certificateType | Sí | Marcar checkbox cuando certificateType = CRIMINAL_RECORDS |
 | 18 Últimas voluntades | certificateType | Sí | Marcar checkbox cuando certificateType = LAST_WILL |
+| 19 Contrato de seguros de cobertura de fallecimiento | certificateType | Sí | Marcar checkbox cuando certificateType = LIFE_INSURANCE |
 
 ---
 
-# 9. Pago
+# 10. Pago
 
 | Campo PDF | Ruta JSON | Obligatorio | Notas                  |
 |---|---|---|------------------------|

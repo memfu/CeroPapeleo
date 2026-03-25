@@ -1,18 +1,17 @@
 package com.unirfp.ceropapeleo.utils
 
 import android.app.DownloadManager
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
-import okhttp3.ResponseBody
-import android.content.ContentValues
 import android.provider.MediaStore
+import okhttp3.ResponseBody
 import java.io.OutputStream
 
 object DownloadUtils {
 
     fun downloadPdf(context: Context, requestId: String) {
-
         val url = "http://10.0.2.2:8080/download/$requestId"
 
         val request = DownloadManager.Request(Uri.parse(url))
@@ -34,7 +33,36 @@ object DownloadUtils {
         downloadManager.enqueue(request)
     }
 
-    // FUNCION Para el PDF que devuelve Retrofit tras el POST /fill-pdf)
+    fun resolveDownloadedFilePath(
+        context: Context,
+        downloadId: Long
+    ): String? {
+        val downloadManager =
+            context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = downloadManager.query(query)
+
+        cursor.use {
+            if (it != null && it.moveToFirst()) {
+                val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val uriIndex = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+
+                if (statusIndex != -1 && uriIndex != -1) {
+                    val status = it.getInt(statusIndex)
+                    val localUri = it.getString(uriIndex)
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL && !localUri.isNullOrBlank()) {
+                        val uri = Uri.parse(localUri)
+                        return uri.path
+                    }
+                }
+            }
+        }
+
+        return null
+    }
+
     fun saveApiPdfToDisk(
         context: Context,
         responseBody: ResponseBody,

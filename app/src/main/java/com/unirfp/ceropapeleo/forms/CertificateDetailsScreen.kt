@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,30 +26,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.unirfp.ceropapeleo.api.PdfRepository
 import com.unirfp.ceropapeleo.forms.components.SignaturePadView
 import com.unirfp.ceropapeleo.forms.components.drawScrollbar
 import com.unirfp.ceropapeleo.forms.sections.LastWillExtraSection
 import com.unirfp.ceropapeleo.forms.sections.SubmitButtonsSection
+import com.unirfp.ceropapeleo.forms.sections.CriminalRecordsSection
+import com.unirfp.ceropapeleo.forms.utils.sanitizeAlphanumeric
 import com.unirfp.ceropapeleo.forms.utils.sanitizeLetters
 import com.unirfp.ceropapeleo.forms.validation.FormValidator
 import com.unirfp.ceropapeleo.model.CertificateType
 import com.unirfp.ceropapeleo.forms.rememberFormRequesters
 import com.unirfp.ceropapeleo.forms.utils.rememberTodayMillis
+import com.unirfp.ceropapeleo.forms.sections.PaymentSection
+import com.unirfp.ceropapeleo.forms.sections.SignatureDateSection
+import com.unirfp.ceropapeleo.forms.sections.SignatureSection
+import com.unirfp.ceropapeleo.forms.utils.rememberOneYearFromTodayMillis
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CertificateDetailsScreen(
-    navController: NavController
+    navController: NavController,
+    certificateCode: String,
+    viewModel: GenerateFormViewModel
 ) {
     // ---------------------------------------------------------
     // 1) Estado principal
     // ---------------------------------------------------------
-    val viewModel: GenerateFormViewModel = viewModel()
     val uiState = viewModel.uiState
     val formData = uiState.form
+
+    LaunchedEffect(certificateCode) {
+        viewModel.initializeCertificateType(certificateCode)
+    }
 
     // ---------------------------------------------------------
     // 2) Estado local de UI
@@ -58,16 +69,19 @@ fun CertificateDetailsScreen(
     var birthDateTouched by remember { mutableStateOf(false) }
     var deathDateTouched by remember { mutableStateOf(false) }
     var willDateTouched by remember { mutableStateOf(false) }
+    var criminalBirthDateTouched by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     val requesters = rememberFormRequesters()
     val context = LocalContext.current
     val repository = remember { PdfRepository() }
 
+
     // En esta pantalla no se redibuja la firma, pero necesitamos saber
     // si existe para validar y enviar.
     var signaturePadView by remember { mutableStateOf<SignaturePadView?>(null) }
 
+    val oneYearFromTodayMillis = rememberOneYearFromTodayMillis()
     val todayMillis = rememberTodayMillis()
 
     // ---------------------------------------------------------
@@ -83,6 +97,15 @@ fun CertificateDetailsScreen(
     val birthDateError = validationSafe.birthDateError
     val deathDateError = validationSafe.deathDateError
     val willDateError = validationSafe.willDateError
+    val criminalBirthDateError =
+        if (criminalBirthDateTouched || showErrors) {
+            validationSafe.birthDateError
+        } else {
+            null
+        }
+
+    val signatureDateError = validationSafe.signatureDateError
+    val isSignatureDateValid = signatureDateError == null
 
     // ---------------------------------------------------------
     // 4) Side effects
@@ -94,7 +117,8 @@ fun CertificateDetailsScreen(
         shouldValidate = showErrors ||
                 birthDateTouched ||
                 deathDateTouched ||
-                willDateTouched
+                willDateTouched ||
+                criminalBirthDateTouched
     )
 
     handleScrollToFirstError(
@@ -144,7 +168,22 @@ fun CertificateDetailsScreen(
 
             when (formData.certificateType) {
                 CertificateType.CRIMINAL_RECORDS -> {
-                    Text("Certificado 17 - Antecedentes Penales (pendiente)")
+                    CriminalRecordsSection(
+                        details = formData.criminalRecordsDetails,
+                        showErrors = showErrors,
+                        birthDateError = criminalBirthDateError,
+                        documentRequester = requesters.criminalDocument,
+                        firstSurnameOrBusinessRequester = requesters.criminalFirstSurnameOrBusiness,
+                        nameRequester = requesters.criminalName,
+                        purposeRequester = requesters.criminalPurpose,
+                        onDetailsChange = { newDetails ->
+                            viewModel.updateCriminalRecordsDetails(newDetails)
+                        },
+                        onBirthDateTouched = { criminalBirthDateTouched = true },
+                        sanitizeLetters = { value, max -> value.sanitizeLetters(max) },
+                        sanitizeAlphanumeric = { value, max -> value.sanitizeAlphanumeric(max) },
+                        todayMillis = todayMillis
+                    )
                 }
 
                 CertificateType.LAST_WILL -> {
@@ -193,10 +232,45 @@ fun CertificateDetailsScreen(
                         onBirthDateTouched = { birthDateTouched = true },
                         onDeathDateTouched = { deathDateTouched = true }
                     )
-
-                    Text("Certificado 19 - Seguros de cobertura de fallecimiento (pendiente)")
                 }
             }
+
+            SignatureSection(
+                signature = formData.signature,
+                onSignatureChange = { newSignature ->
+                    viewModel.updateSignature(newSignature)
+                },
+                onPadReady = { view ->
+                    signaturePadView = view
+                },
+                onSignatureCleared = {
+                    viewModel.updateSignature(
+                        formData.signature.copy(imageBase64 = "")
+                    )
+                }
+            )
+
+            SignatureDateSection(
+                signature = formData.signature,
+                showErrors = showErrors,
+                isSignatureDateValid = isSignatureDateValid,
+                signatureDateError = signatureDateError,
+                signatureRequester = requesters.signature,
+                signaturePlaceRequester = requesters.signaturePlace,
+                onSignatureChange = { newSignature ->
+                    viewModel.updateSignature(newSignature)
+                },
+                sanitizeLetters = { value, max -> value.sanitizeLetters(max) },
+                oneYearFromTodayMillis = oneYearFromTodayMillis
+            )
+
+            PaymentSection(
+                payment = formData.payment,
+                showErrors = showErrors,
+                onPaymentChange = { newPayment ->
+                    viewModel.updatePayment(newPayment)
+                }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -207,7 +281,11 @@ fun CertificateDetailsScreen(
                     showErrors = true
                     submitAttempt++
 
-                    val signatureBase64 = formData.signature.imageBase64
+                    val signatureBase64 = signaturePadView?.exportSignatureBase64().orEmpty()
+
+                    viewModel.updateSignature(
+                        formData.signature.copy(imageBase64 = signatureBase64)
+                    )
 
                     viewModel.submit(
                         context = context,

@@ -10,9 +10,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.unirfp.ceropapeleo.forms.GenerateFormViewModel
 
 @Composable
-fun HomeSelectionScreen(navController: NavController) {
+fun HomeSelectionScreen(
+    navController: NavController,
+    viewModel: GenerateFormViewModel
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -44,7 +48,10 @@ fun HomeSelectionScreen(navController: NavController) {
 
         // --- BOTÓN 1: ANTECEDENTES PENALES ---
         OutlinedButton(
-            onClick = { navController.navigate("generate_form/17") },
+            onClick = {
+                viewModel.startNewForm("17")
+                navController.navigate("webview/17")
+            },
             modifier = Modifier.fillMaxWidth().height(80.dp),
             shape = MaterialTheme.shapes.medium
         ) {
@@ -54,8 +61,11 @@ fun HomeSelectionScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         // --- BOTÓN 2: ÚLTIMAS VOLUNTADES ---
-        Button(
-            onClick = { navController.navigate("generate_form/18") },
+        OutlinedButton(
+            onClick = {
+                viewModel.startNewForm("18")
+                navController.navigate("webview/18")
+            },
             modifier = Modifier.fillMaxWidth().height(80.dp),
             shape = MaterialTheme.shapes.medium
         ) {
@@ -66,10 +76,13 @@ fun HomeSelectionScreen(navController: NavController) {
 
         // --- BOTÓN 3: COBERTURA FALLECIMIENTO ---
         OutlinedButton(
-            onClick = { navController.navigate("generate_form/19") },
+            onClick = {
+                viewModel.startNewForm("19")
+                navController.navigate("webview/19")
+            },
             modifier = Modifier.fillMaxWidth().height(80.dp),
             shape = MaterialTheme.shapes.medium
-        ) {
+        ){
             Text("Certificado de cobertura de fallecimiento", fontSize = 16.sp)
         }
     }

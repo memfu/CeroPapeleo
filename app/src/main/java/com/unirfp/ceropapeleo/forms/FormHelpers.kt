@@ -28,7 +28,13 @@ data class FormRequesters(
     val deceasedFirstSurname: BringIntoViewRequester,
     val deathDate: BringIntoViewRequester,
 
-    // --- 5. FIRMA ---
+    // --- 5. ANTECEDENTES PENALES ---
+    val criminalDocument: BringIntoViewRequester,
+    val criminalFirstSurnameOrBusiness: BringIntoViewRequester,
+    val criminalName: BringIntoViewRequester,
+    val criminalPurpose: BringIntoViewRequester,
+
+    // --- 6. FIRMA ---
     val signaturePlace: BringIntoViewRequester,
     val signature: BringIntoViewRequester
 )
@@ -56,7 +62,13 @@ fun rememberFormRequesters(): FormRequesters {
         deceasedFirstSurname = remember { BringIntoViewRequester() },
         deathDate = remember { BringIntoViewRequester() },
 
-        // --- 5. FIRMA ---
+        // --- 5. ANTECEDENTES PENALES ---
+        criminalDocument = remember { BringIntoViewRequester() },
+        criminalFirstSurnameOrBusiness = remember { BringIntoViewRequester() },
+        criminalName = remember { BringIntoViewRequester() },
+        criminalPurpose = remember { BringIntoViewRequester() },
+
+        // --- 6. FIRMA ---
         signaturePlace = remember { BringIntoViewRequester() },
         signature = remember { BringIntoViewRequester() }
     )

@@ -6,13 +6,17 @@ object PdfMapper {
     private val logger = LoggerFactory.getLogger(PdfMapper::class.java)
 
     private val MODELO_790_MAP = mapOf(
-        // 1. Datos del solicitante
+        // =====================================================
+        // 1. DATOS DEL SOLICITANTE
+        // =====================================================
         "nie" to "documentId",
         "2 PRIMER APELLIDO DEL SOLICITANTE" to "surname1",
         "3 SEGUNDO APELLIDO" to "surname2",
         "4 NOMBRE" to "name",
 
-        // 2. Dirección y vivienda
+        // =====================================================
+        // 2. DIRECCIÓN
+        // =====================================================
         "5 DOMICILIO CALLEPLAZAAVENIDA" to "street",
         "6 NÚMERO" to "number",
         "ESCALERA" to "staircase",
@@ -23,15 +27,36 @@ object PdfMapper {
         "12 DOMICILIO PAIS" to "country",
         "14 CÓDIGO POSTAL" to "postalCode",
 
-        // 3. Contacto
+        // =====================================================
+        // 3. CONTACTO
+        // =====================================================
         "10 TELEFONOS FIJO YO MÓVIL" to "mobilePhone",
         "15 CORREO ELECTRÓNICO" to "email",
 
-        // 4. Destino del Certificado
+        // =====================================================
+        // 4. DESTINO
+        // =====================================================
         "20 PAÍS DE DESTINO" to "destinationCountry",
         "21 AUTORIDAD O ENTIDAD ANTE LA QUE DEBE SURTIR EFECTOS" to "authorityOrEntity",
 
-        // 5. Datos del Fallecido
+        // =====================================================
+        // 5. ANTECEDENTES PENALES (22-32)
+        // =====================================================
+        "22 NIFCIFNIE" to "criminalSubjectDocumentId",
+        "23 PRIMER APELLIDO O DENOMINACIÓN SOCIAL" to "criminalSubjectSurname1OrBusinessName",
+        "24 SEGUNDO APELLIDO" to "criminalSubjectSurname2",
+        "25 NOMBRE" to "criminalSubjectName",
+        "26 FECHA DE NACIMIENTO" to "criminalBirthDate",
+        "27 POBLACIÓN DE NACIMIENTO" to "criminalBirthCity",
+        "28 PROVINCIAPAIS DE NACIMIENTO" to "criminalBirthProvinceOrCountry",
+        "29 PAÍS DE NACIONALIDAD" to "criminalNationalityCountry",
+        "30 NOMBRE DEL PADRE" to "criminalFatherName",
+        "31 NOMBRE DE LA MADRE" to "criminalMotherName",
+        "32 FINALIDAD PARA LA QUE SE SOLICITA" to "criminalPurpose",
+
+        // =====================================================
+        // 6. DATOS DEL FALLECIDO
+        // =====================================================
         "33 NIFNIE" to "deceasedDocumentId",
         "34 PRIMER APELLIDO DE LA PERSONA FALLECIDA" to "deceasedSurname1",
         "35 SEGUNDO APELLIDO" to "deceasedSurname2",
@@ -41,20 +66,30 @@ object PdfMapper {
         "39 FECHA DE NACIMIENTO" to "birthDate",
         "39 POBLACION  DE NACIMIENTO" to "birthCity", // Con doble espacio como en los logs
 
-        // 6. Testamento y Otros (Nuevos de María)
+        // =====================================================
+        // 7. TESTAMENTO
+        // =====================================================
         "FECHA DEL TESTAMENTO" to "willDate",
         "NOTARIO" to "notary",
         "LUGAR DE OTORGAMIENTO" to "grantPlace",
         "CONYUGE" to "spousesFullName",
 
-        // 7. Firma
+        // =====================================================
+        // 8. FIRMA
+        // =====================================================
         "FECHA LUGAR" to "signaturePlace",
 
-        //8. Pago
+        // =====================================================
+        // 9. PAGO
+        // =====================================================
         "EUROS" to "amountEur",
 
-        // 8. Tipo certificado (Tu Regla de Oro)
-        "18 Últimas voluntades" to "certificateType"
+        // =====================================================
+        // 10. TIPO DE CERTIFICADO
+        // =====================================================
+        "17 Antecedentes Penales" to "17 Antecedentes Penales",
+        "18 Últimas voluntades" to "18 Últimas voluntades",
+        "19 Contrato de seguros de cobertura de fallecimiento" to "19 Contrato de seguros de cobertura de fallecimiento"
     )
 
     fun transformToPdfFields(userData: Map<String, String>): Map<String, String> {
@@ -64,13 +99,8 @@ object PdfMapper {
             val value = userData[jsonKey]
 
             if (!value.isNullOrBlank()) {
-                if (jsonKey == "certificateType" && value == "LAST_WILL") {
-                    finalMap[pdfId] = "On" // REGLA ORO: Activamos la X con "On"
-                    logger.info("✅ Checkbox activado: $pdfId")
-                } else {
-                    finalMap[pdfId] = value
-                    logger.info("⚡ Mapping: App($jsonKey) -> PDF($pdfId) = $value")
-                }
+                finalMap[pdfId] = value
+                logger.info("⚡ Mapping: App($jsonKey) -> PDF($pdfId) = $value")
             }
         }
 

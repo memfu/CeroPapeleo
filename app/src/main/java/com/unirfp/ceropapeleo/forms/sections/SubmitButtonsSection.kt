@@ -20,15 +20,21 @@ fun SubmitButtonsSection(
     isSubmitting: Boolean,
     onSubmit: () -> Unit,
     primaryButtonText: String = "GENERAR PDF",
-    secondaryButtonText: String = "VOLVER",
+    secondaryButtonText: String = "VOLVER ATRÁS",
     onSecondaryClick: (() -> Unit)? = null
-){
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+
+        // ---------------------------------------------------------
+        // BOTÓN SECUNDARIO (volver)
+        // ---------------------------------------------------------
         Button(
-            onClick = { navController.popBackStack() },
+            onClick = {
+                onSecondaryClick?.invoke() ?: navController.popBackStack()
+            },
             modifier = Modifier.weight(1f),
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(
@@ -37,9 +43,12 @@ fun SubmitButtonsSection(
             ),
             enabled = !isSubmitting
         ) {
-            Text("VOLVER AL MENÚ")
+            Text(secondaryButtonText)
         }
 
+        // ---------------------------------------------------------
+        // BOTÓN PRINCIPAL (acción)
+        // ---------------------------------------------------------
         Button(
             onClick = onSubmit,
             modifier = Modifier.weight(1f),
@@ -47,9 +56,11 @@ fun SubmitButtonsSection(
             enabled = !isSubmitting
         ) {
             if (isSubmitting) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp
+                )
             } else {
-                Text("GENERAR PDF")
+                Text(primaryButtonText)
             }
         }
     }

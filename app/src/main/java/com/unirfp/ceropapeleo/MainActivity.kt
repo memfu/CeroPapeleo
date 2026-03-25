@@ -13,12 +13,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 // --- NUEVA IMPORTACIÓN ---
 import com.unirfp.ceropapeleo.home.HomeSelectionScreen
-import com.unirfp.ceropapeleo.forms.GenerateFormScreen
+import com.unirfp.ceropapeleo.forms.CommonFormScreen
 import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
 import com.unirfp.ceropapeleo.web.MinistryWebViewScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.unirfp.ceropapeleo.forms.CertificateDetailsScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.unirfp.ceropapeleo.forms.GenerateFormViewModel
+import com.unirfp.ceropapeleo.forms.CommonFormScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -34,6 +37,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
+                    val generateFormViewModel: GenerateFormViewModel = viewModel()
 
                     NavHost(
                         navController = navController,
@@ -41,12 +45,15 @@ class MainActivity : ComponentActivity() {
                     ) {
                         // Pantalla de selección inicial
                         composable("home") {
-                            HomeSelectionScreen(navController)
+                            HomeSelectionScreen(
+                                navController = navController,
+                                viewModel = generateFormViewModel
+                            )
                         }
 
                         // Pantalla del formulario reutilizable para 17, 18 y 19
                         composable(
-                            route = "generate_form/{certificateCode}",
+                            route = "common_form/{certificateCode}",
                             arguments = listOf(
                                 navArgument("certificateCode") {
                                     type = NavType.StringType
@@ -56,19 +63,50 @@ class MainActivity : ComponentActivity() {
                             val certificateCode =
                                 backStackEntry.arguments?.getString("certificateCode").orEmpty()
 
-                            GenerateFormScreen(
+                            CommonFormScreen(
                                 navController = navController,
-                                certificateCode = certificateCode
+                                certificateCode = certificateCode,
+                                viewModel = generateFormViewModel
                             )
                         }
 
                         // Pantalla del WebView
-                        composable("webview") {
-                            MinistryWebViewScreen()
+                        composable(
+                            route = "webview/{certificateCode}",
+                            arguments = listOf(
+                                navArgument("certificateCode") {
+                                    type = NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val certificateCode =
+                                backStackEntry.arguments?.getString("certificateCode").orEmpty()
+
+                            MinistryWebViewScreen(
+                                navController = navController,
+                                certificateCode = certificateCode,
+                                onPdfDownloadStarted = { downloadId ->
+                                    generateFormViewModel.setBasePdfDownloadId(downloadId)
+                                }
+                            )
                         }
 
-                        composable("certificate_details") {
-                            CertificateDetailsScreen(navController = navController)
+                        composable(
+                            route = "certificate_details/{certificateCode}",
+                            arguments = listOf(
+                                navArgument("certificateCode") {
+                                    type = NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val certificateCode =
+                                backStackEntry.arguments?.getString("certificateCode").orEmpty()
+
+                            CertificateDetailsScreen(
+                                navController = navController,
+                                certificateCode = certificateCode,
+                                viewModel = generateFormViewModel
+                            )
                         }
                     }
                 }

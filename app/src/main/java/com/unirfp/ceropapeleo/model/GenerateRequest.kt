@@ -13,7 +13,8 @@ data class GenerateRequest(
     val destination: Destination = Destination(),
     val payment: Payment = Payment(),
     val signature: Signature = Signature(),
-    val deathRelatedDetails: DeathRelatedDetails = DeathRelatedDetails()
+    val deathRelatedDetails: DeathRelatedDetails = DeathRelatedDetails(),
+    val criminalRecordsDetails: CriminalRecordsDetails = CriminalRecordsDetails()
 )
 
 /**
@@ -104,6 +105,23 @@ data class LastWillExtra(
     val notary: String = "",
     val grantPlace: String = "",
     val spousesFullName: String = ""
+)
+
+/**
+ * Información para los antecedentes penales.
+ */
+data class CriminalRecordsDetails(
+    val subjectDocumentId: String = "",
+    val subjectFirstSurnameOrBusinessName: String = "",
+    val subjectSecondSurname: String = "",
+    val subjectName: String = "",
+    val birthDate: String = "",
+    val birthCity: String = "",
+    val birthProvinceOrCountry: String = "",
+    val nationalityCountry: String = "",
+    val fatherName: String = "",
+    val motherName: String = "",
+    val purpose: String = ""
 )
 
 /**

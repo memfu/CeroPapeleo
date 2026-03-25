@@ -96,14 +96,41 @@ public object FormValidator {
         formData: GenerateRequest,
         hasSignature: Boolean
     ): FormValidationResult {
-
         val common = validateCommon(formData, hasSignature)
 
-        return common.copy(
-            birthDateError = null,
+        val birthDateValue = formData.criminalRecordsDetails.birthDate
+        val signatureDateValue = formData.signature.date
+
+        val birthDateParsed = birthDateValue.toLocalDateOrNull()
+        val signatureDateParsed = signatureDateValue.toLocalDateOrNull()
+
+        val isBirthBeforeSignature =
+            birthDateParsed == null || signatureDateParsed == null ||
+                    birthDateParsed.isBefore(signatureDateParsed)
+        val criminalBirthDateError = when {
+            birthDateValue.isBlank() -> null
+            !birthDateValue.isValidSpanishDate() -> "Fecha de nacimiento inválida"
+            !isBirthBeforeSignature ->
+                "La fecha de nacimiento debe ser anterior a la de firma"
+            else -> null
+        }
+
+        val isSpecificValid =
+            formData.criminalRecordsDetails.subjectDocumentId.isNotBlank() &&
+                    formData.criminalRecordsDetails.subjectFirstSurnameOrBusinessName.isNotBlank() &&
+                    formData.criminalRecordsDetails.subjectName.isNotBlank() &&
+                    formData.criminalRecordsDetails.purpose.isNotBlank() &&
+                    criminalBirthDateError == null
+
+        return FormValidationResult(
+            birthDateError = criminalBirthDateError,
             deathDateError = null,
             willDateError = null,
-            isFormValid = common.isFormValid
+            signatureDateError = common.signatureDateError,
+            isEmailValid = common.isEmailValid,
+            isPostalCodeValid = common.isPostalCodeValid,
+            isBankDataValid = common.isBankDataValid,
+            isFormValid = common.isFormValid && isSpecificValid
         )
     }
 

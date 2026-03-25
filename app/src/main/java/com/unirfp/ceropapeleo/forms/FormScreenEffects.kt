@@ -39,32 +39,89 @@ fun handleScrollToFirstError(
     signaturePadView: SignaturePadView?,
     requesters: FormRequesters
 ) {
-    LaunchedEffect(submitAttempt, validationSafe) {
+    LaunchedEffect(submitAttempt, validationSafe, formData.certificateType) {
         if (submitAttempt == 0) return@LaunchedEffect
         if (validationSafe.isFormValid) return@LaunchedEffect
 
         when {
-            formData.applicant.name.isBlank() -> requesters.name.bringIntoView()
-            formData.applicant.firstSurname.isBlank() -> requesters.firstSurname.bringIntoView()
-            formData.applicant.documentId.isBlank() -> requesters.documentId.bringIntoView()
-            formData.applicant.address.street.isBlank() -> requesters.street.bringIntoView()
+            // =====================================================
+            // 1. BLOQUE COMÚN
+            // =====================================================
+            formData.applicant.name.isBlank() ->
+                requesters.name.bringIntoView()
+
+            formData.applicant.firstSurname.isBlank() ->
+                requesters.firstSurname.bringIntoView()
+
+            formData.applicant.documentId.isBlank() ->
+                requesters.documentId.bringIntoView()
+
+            formData.applicant.address.street.isBlank() ->
+                requesters.street.bringIntoView()
+
             formData.applicant.address.postalCode.isBlank() || !validationSafe.isPostalCodeValid ->
                 requesters.postalCode.bringIntoView()
-            formData.applicant.address.city.isBlank() -> requesters.city.bringIntoView()
-            formData.applicant.address.province.isBlank() -> requesters.province.bringIntoView()
-            formData.applicant.address.country.isBlank() -> requesters.country.bringIntoView()
+
+            formData.applicant.address.city.isBlank() ->
+                requesters.city.bringIntoView()
+
+            formData.applicant.address.province.isBlank() ->
+                requesters.province.bringIntoView()
+
+            formData.applicant.address.country.isBlank() ->
+                requesters.country.bringIntoView()
+
             formData.applicant.contact.email.isNotBlank() && !validationSafe.isEmailValid ->
                 requesters.email.bringIntoView()
-            formData.deathRelatedDetails.deceased.name.isBlank() ->
+
+            // =====================================================
+            // 2. BLOQUE ANTECEDENTES PENALES (17)
+            // =====================================================
+            formData.certificateType == CertificateType.CRIMINAL_RECORDS &&
+                    formData.criminalRecordsDetails.subjectDocumentId.isBlank() ->
+                requesters.criminalDocument.bringIntoView()
+
+            formData.certificateType == CertificateType.CRIMINAL_RECORDS &&
+                    formData.criminalRecordsDetails.subjectFirstSurnameOrBusinessName.isBlank() ->
+                requesters.criminalFirstSurnameOrBusiness.bringIntoView()
+
+            formData.certificateType == CertificateType.CRIMINAL_RECORDS &&
+                    formData.criminalRecordsDetails.subjectName.isBlank() ->
+                requesters.criminalName.bringIntoView()
+
+            formData.certificateType == CertificateType.CRIMINAL_RECORDS &&
+                    formData.criminalRecordsDetails.purpose.isBlank() ->
+                requesters.criminalPurpose.bringIntoView()
+
+            // =====================================================
+            // 3. BLOQUE FALLECIDO (18 y 19)
+            // =====================================================
+            formData.certificateType != CertificateType.CRIMINAL_RECORDS &&
+                    formData.deathRelatedDetails.deceased.name.isBlank() ->
                 requesters.deceasedName.bringIntoView()
-            formData.deathRelatedDetails.deceased.firstSurname.isBlank() ->
+
+            formData.certificateType != CertificateType.CRIMINAL_RECORDS &&
+                    formData.deathRelatedDetails.deceased.firstSurname.isBlank() ->
                 requesters.deceasedFirstSurname.bringIntoView()
-            formData.deathRelatedDetails.deceased.deathDate.isBlank() || validationSafe.deathDateError != null ->
+
+            formData.certificateType != CertificateType.CRIMINAL_RECORDS &&
+                    (
+                            formData.deathRelatedDetails.deceased.deathDate.isBlank() ||
+                                    validationSafe.deathDateError != null
+                            ) ->
                 requesters.deathDate.bringIntoView()
-            formData.signature.place.isBlank() -> requesters.signaturePlace.bringIntoView()
+
+            // =====================================================
+            // 4. FIRMA
+            // =====================================================
+            formData.signature.place.isBlank() ->
+                requesters.signaturePlace.bringIntoView()
+
             formData.signature.date.isBlank() || validationSafe.signatureDateError != null ->
                 requesters.signature.bringIntoView()
-            signaturePadView?.hasSignature() != true -> requesters.signature.bringIntoView()
+
+            signaturePadView?.hasSignature() != true ->
+                requesters.signature.bringIntoView()
         }
     }
 }

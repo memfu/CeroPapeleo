@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,41 +26,52 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.unirfp.ceropapeleo.api.PdfRepository
-import com.unirfp.ceropapeleo.forms.components.SignaturePadView
 import com.unirfp.ceropapeleo.forms.components.drawScrollbar
 import com.unirfp.ceropapeleo.forms.sections.AddressSection
 import com.unirfp.ceropapeleo.forms.sections.ApplicantSection
 import com.unirfp.ceropapeleo.forms.sections.ContactSection
 import com.unirfp.ceropapeleo.forms.sections.DestinationSection
-import com.unirfp.ceropapeleo.forms.sections.PaymentSection
-import com.unirfp.ceropapeleo.forms.sections.SignatureDateSection
-import com.unirfp.ceropapeleo.forms.sections.SignatureSection
 import com.unirfp.ceropapeleo.forms.sections.SubmitButtonsSection
-import com.unirfp.ceropapeleo.forms.utils.rememberOneYearFromTodayMillis
 import com.unirfp.ceropapeleo.forms.utils.sanitizeAlphanumeric
 import com.unirfp.ceropapeleo.forms.utils.sanitizeDigits
 import com.unirfp.ceropapeleo.forms.utils.sanitizeLetters
 import com.unirfp.ceropapeleo.forms.validation.FormValidator
+import com.unirfp.ceropapeleo.utils.DownloadUtils
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommonFormScreen(
     navController: NavController,
-    certificateCode: String
+    certificateCode: String,
+    viewModel: GenerateFormViewModel
 ) {
     // ---------------------------------------------------------
     // 1) Estado principal
     // ---------------------------------------------------------
-    val viewModel: GenerateFormViewModel = viewModel()
     val uiState = viewModel.uiState
     val formData = uiState.form
+    val context = LocalContext.current
 
-    // Inicializa el tipo de certificado al entrar
-    androidx.compose.runtime.LaunchedEffect(certificateCode) {
-        viewModel.initializeCertificateType(certificateCode)
+    // Cuando la WebView haya iniciado una descarga oficial, resolvemos
+    // el fichero real y lo guardamos como PDF base de esta sesión.
+    LaunchedEffect(uiState.basePdfDownloadId) {
+        val downloadId = uiState.basePdfDownloadId ?: return@LaunchedEffect
+
+        repeat(20) {
+            val resolvedPath = DownloadUtils.resolveDownloadedFilePath(
+                context = context,
+                downloadId = downloadId
+            )
+
+            if (!resolvedPath.isNullOrBlank()) {
+                viewModel.setBasePdfPath(resolvedPath)
+                return@LaunchedEffect
+            }
+
+            delay(500)
+        }
     }
 
     // ---------------------------------------------------------
@@ -72,25 +84,17 @@ fun CommonFormScreen(
     val scrollState = rememberScrollState()
     val requesters = rememberFormRequesters()
 
-    val context = LocalContext.current
-    remember { PdfRepository() } // de momento no se usa aquí, pero lo dejamos fuera
-    var signaturePadView by remember { mutableStateOf<SignaturePadView?>(null) }
-
-    val oneYearFromTodayMillis = rememberOneYearFromTodayMillis()
-
     // ---------------------------------------------------------
     // 3) Validación
     // ---------------------------------------------------------
     val validationSafe = uiState.validation
         ?: FormValidator.validate(
             formData = formData,
-            hasSignature = signaturePadView?.hasSignature() == true
+            hasSignature = true
         )
 
-    val signatureDateError = validationSafe.signatureDateError
     val isEmailValid = validationSafe.isEmailValid
     val isPostalCodeValid = validationSafe.isPostalCodeValid
-    val isSignatureDateValid = signatureDateError == null
 
     val postalCode = formData.applicant.address.postalCode
     val countryNormalized = formData.applicant.address.country.trim().lowercase()
@@ -101,7 +105,7 @@ fun CommonFormScreen(
     handleRealtimeValidation(
         viewModel = viewModel,
         formData = formData,
-        signaturePadView = signaturePadView,
+        signaturePadView = null,
         shouldValidate = showErrors || emailTouched
     )
 
@@ -109,15 +113,8 @@ fun CommonFormScreen(
         submitAttempt = submitAttempt,
         validationSafe = validationSafe,
         formData = formData,
-        signaturePadView = signaturePadView,
+        signaturePadView = null,
         requesters = requesters
-    )
-
-    handleSubmitError(
-        submitError = uiState.submitError,
-        context = context,
-        onConsumed = { viewModel.clearSubmitError() },
-        onShowErrors = { showErrors = true }
     )
 
     // ---------------------------------------------------------
@@ -139,10 +136,6 @@ fun CommonFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "Complete primero los datos comunes del formulario",
-                fontSize = 14.sp
-            )
 
             ApplicantSection(
                 applicant = formData.applicant,
@@ -196,48 +189,14 @@ fun CommonFormScreen(
                 sanitizeLetters = { value, max -> value.sanitizeLetters(max) }
             )
 
-            SignatureSection(
-                signature = formData.signature,
-                onSignatureChange = { newSignature ->
-                    viewModel.updateSignature(newSignature)
-                },
-                onPadReady = { view ->
-                    signaturePadView = view
-                },
-                onSignatureCleared = {
-                    viewModel.updateSignature(
-                        formData.signature.copy(imageBase64 = "")
-                    )
-                }
-            )
-
-            SignatureDateSection(
-                signature = formData.signature,
-                showErrors = showErrors,
-                isSignatureDateValid = isSignatureDateValid,
-                signatureDateError = signatureDateError,
-                signatureRequester = requesters.signature,
-                signaturePlaceRequester = requesters.signaturePlace,
-                onSignatureChange = { newSignature ->
-                    viewModel.updateSignature(newSignature)
-                },
-                sanitizeLetters = { value, max -> value.sanitizeLetters(max) },
-                oneYearFromTodayMillis = oneYearFromTodayMillis
-            )
-
-            PaymentSection(
-                payment = formData.payment,
-                showErrors = showErrors,
-                onPaymentChange = { newPayment ->
-                    viewModel.updatePayment(newPayment)
-                }
-            )
-
             Spacer(modifier = Modifier.height(16.dp))
 
             SubmitButtonsSection(
                 navController = navController,
                 isSubmitting = false,
+                primaryButtonText = "CONTINUAR",
+                secondaryButtonText = "VOLVER",
+                onSecondaryClick = { navController.popBackStack() },
                 onSubmit = {
                     showErrors = true
                     submitAttempt++
@@ -250,14 +209,11 @@ fun CommonFormScreen(
                         formData.applicant.address.city.isNotBlank() &&
                         formData.applicant.address.province.isNotBlank() &&
                         formData.applicant.address.country.isNotBlank() &&
-                        formData.signature.place.isNotBlank() &&
-                        validationSafe.signatureDateError == null &&
                         validationSafe.isEmailValid &&
                         validationSafe.isPostalCodeValid &&
-                        validationSafe.isBankDataValid &&
-                        signaturePadView?.hasSignature() == true
+                        !uiState.basePdfPath.isNullOrBlank()
                     ) {
-                        navController.navigate("certificate_details")
+                        navController.navigate("certificate_details/$certificateCode")
                     }
                 }
             )
