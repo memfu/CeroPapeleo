@@ -42,20 +42,9 @@ fun HomeSelectionScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // --- BOTÓN 1: ÚLTIMAS VOLUNTADES ---
-        Button(
-            onClick = { navController.navigate("form_ultimas_voluntades") },
-            modifier = Modifier.fillMaxWidth().height(80.dp),
-            shape = MaterialTheme.shapes.medium
-        ) {
-            Text("Certificado de últimas voluntades", fontSize = 16.sp)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // --- BOTÓN 2: ANTECEDENTES PENALES ---
+        // --- BOTÓN 1: ANTECEDENTES PENALES ---
         OutlinedButton(
-            onClick = { /* De momento no hace nada */ },
+            onClick = { navController.navigate("generate_form/17") },
             modifier = Modifier.fillMaxWidth().height(80.dp),
             shape = MaterialTheme.shapes.medium
         ) {
@@ -64,9 +53,20 @@ fun HomeSelectionScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // --- BOTÓN 2: ÚLTIMAS VOLUNTADES ---
+        Button(
+            onClick = { navController.navigate("generate_form/18") },
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Text("Certificado de últimas voluntades", fontSize = 16.sp)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // --- BOTÓN 3: COBERTURA FALLECIMIENTO ---
         OutlinedButton(
-            onClick = { /* De momento no hace nada */ },
+            onClick = { navController.navigate("generate_form/19") },
             modifier = Modifier.fillMaxWidth().height(80.dp),
             shape = MaterialTheme.shapes.medium
         ) {

@@ -1,5 +1,6 @@
 package com.unirfp.ceropapeleo.api
 
+import com.unirfp.ceropapeleo.model.CertificateType
 import com.unirfp.ceropapeleo.model.GenerateRequest
 
 object UserDataMapper {
@@ -63,7 +64,9 @@ object UserDataMapper {
             "bankAcc" to request.payment.bankAcc,
 
             // Tipo de certificado
-            "certificateType" to request.certificateType
+            "17 Antecedentes Penales" to if (request.certificateType == CertificateType.CRIMINAL_RECORDS) "On" else "Off",
+            "18 Últimas voluntades" to if (request.certificateType == CertificateType.LAST_WILL) "On" else "Off",
+            "19 Contrato de seguros de cobertura de fallecimiento" to if (request.certificateType == CertificateType.LIFE_INSURANCE) "On" else "Off",
         ).filterValues { it.isNotBlank() }
     }
 }

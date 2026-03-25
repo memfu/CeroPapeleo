@@ -93,10 +93,6 @@ class PdfService {
                         for (pageIndex in 0 until pagesToSign) {
                             val page = document.getPage(pageIndex)
 
-                            logger.info(
-                                "📐 Insertando firma en página $pageIndex (width=${page.mediaBox.width}, height=${page.mediaBox.height})"
-                            )
-
                             PDPageContentStream(
                                 document,
                                 page,

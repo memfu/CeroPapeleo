@@ -2,8 +2,6 @@
 
 package com.unirfp.ceropapeleo.forms
 
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,7 +16,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,111 +34,75 @@ import com.unirfp.ceropapeleo.forms.sections.AddressSection
 import com.unirfp.ceropapeleo.forms.sections.ApplicantSection
 import com.unirfp.ceropapeleo.forms.sections.ContactSection
 import com.unirfp.ceropapeleo.forms.sections.DestinationSection
-import com.unirfp.ceropapeleo.forms.sections.LastWillExtraSection
 import com.unirfp.ceropapeleo.forms.sections.PaymentSection
 import com.unirfp.ceropapeleo.forms.sections.SignatureDateSection
 import com.unirfp.ceropapeleo.forms.sections.SignatureSection
 import com.unirfp.ceropapeleo.forms.sections.SubmitButtonsSection
+import com.unirfp.ceropapeleo.forms.utils.rememberOneYearFromTodayMillis
 import com.unirfp.ceropapeleo.forms.utils.sanitizeAlphanumeric
 import com.unirfp.ceropapeleo.forms.utils.sanitizeDigits
 import com.unirfp.ceropapeleo.forms.utils.sanitizeLetters
 import com.unirfp.ceropapeleo.forms.validation.FormValidator
-import com.unirfp.ceropapeleo.model.CertificateType
-import com.unirfp.ceropapeleo.forms.utils.rememberTodayMillis
-import com.unirfp.ceropapeleo.forms.utils.rememberOneYearFromTodayMillis
 
-// =========================================================
-// 🟥 PANTALLA PRINCIPAL
-// =========================================================
-// Esta pantalla:
-// - lee el estado del formulario desde el ViewModel
-// - pinta secciones comunes
-// - pinta bloques específicos según certificado
-// - reacciona a validación, errores y PDF generado
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GenerateFormScreen(
+fun CommonFormScreen(
     navController: NavController,
     certificateCode: String
 ) {
-
     // ---------------------------------------------------------
-    // 1) Estado principal de pantalla y formulario
+    // 1) Estado principal
     // ---------------------------------------------------------
     val viewModel: GenerateFormViewModel = viewModel()
     val uiState = viewModel.uiState
     val formData = uiState.form
 
-    LaunchedEffect(certificateCode) {
+    // Inicializa el tipo de certificado al entrar
+    androidx.compose.runtime.LaunchedEffect(certificateCode) {
         viewModel.initializeCertificateType(certificateCode)
     }
 
     // ---------------------------------------------------------
-    // 2) Estado local solo de UI
+    // 2) Estado local de UI
     // ---------------------------------------------------------
-    // showErrors: activa la visualización de errores
-    // submitAttempt: fuerza reevaluación del scroll al reintentar
-    // touched: evita validar demasiado pronto algunos campos
     var showErrors by remember { mutableStateOf(false) }
     var submitAttempt by remember { mutableIntStateOf(0) }
-    var birthDateTouched by remember { mutableStateOf(false) }
-    var deathDateTouched by remember { mutableStateOf(false) }
-    var willDateTouched by remember { mutableStateOf(false) }
     var emailTouched by remember { mutableStateOf(false) }
 
-    // ---------------------------------------------------------
-    // 3) Estado auxiliar de scroll, contexto y recursos
-    // ---------------------------------------------------------
     val scrollState = rememberScrollState()
     val requesters = rememberFormRequesters()
+
     val context = LocalContext.current
-    val repository = remember { PdfRepository() }
+    remember { PdfRepository() } // de momento no se usa aquí, pero lo dejamos fuera
     var signaturePadView by remember { mutableStateOf<SignaturePadView?>(null) }
 
-    // ---------------------------------------------------------
-    // 4) Límites temporales usados por los DatePicker
-    // ---------------------------------------------------------
-    val todayMillis = rememberTodayMillis()
     val oneYearFromTodayMillis = rememberOneYearFromTodayMillis()
 
     // ---------------------------------------------------------
-    // 5) Validación consolidada
+    // 3) Validación
     // ---------------------------------------------------------
-    // Se usa la validación almacenada en el ViewModel cuando existe.
-    // Si ese frame todavía no la tiene lista, se calcula un fallback local.
     val validationSafe = uiState.validation
         ?: FormValidator.validate(
             formData = formData,
             hasSignature = signaturePadView?.hasSignature() == true
         )
 
-    val birthDateError = validationSafe.birthDateError
-    val deathDateError = validationSafe.deathDateError
-    val willDateError = validationSafe.willDateError
     val signatureDateError = validationSafe.signatureDateError
-
     val isEmailValid = validationSafe.isEmailValid
     val isPostalCodeValid = validationSafe.isPostalCodeValid
     val isSignatureDateValid = signatureDateError == null
 
-    // ---------------------------------------------------------
-    // 6) Valores derivados usados por secciones
-    // ---------------------------------------------------------
     val postalCode = formData.applicant.address.postalCode
     val countryNormalized = formData.applicant.address.country.trim().lowercase()
 
     // ---------------------------------------------------------
-    // 7) Side effects de pantalla
+    // 4) Side effects
     // ---------------------------------------------------------
     handleRealtimeValidation(
         viewModel = viewModel,
         formData = formData,
         signaturePadView = signaturePadView,
-        shouldValidate = showErrors ||
-                birthDateTouched ||
-                deathDateTouched ||
-                willDateTouched ||
-                emailTouched
+        shouldValidate = showErrors || emailTouched
     )
 
     handleScrollToFirstError(
@@ -159,14 +120,8 @@ fun GenerateFormScreen(
         onShowErrors = { showErrors = true }
     )
 
-    handleGeneratedPdf(
-        generatedPdfUri = uiState.generatedPdfUri,
-        context = context,
-        onConsumed = { viewModel.clearGeneratedPdfUri() }
-    )
-
     // ---------------------------------------------------------
-    // 8) Estructura visual principal
+    // 5) UI
     // ---------------------------------------------------------
     Scaffold(
         topBar = {
@@ -184,18 +139,11 @@ fun GenerateFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            // -------------------------------------------------
-            // 8.1) Texto introductorio
-            // -------------------------------------------------
             Text(
-                "Complete los campos para generar el PDF oficial listo para entregar",
+                "Complete primero los datos comunes del formulario",
                 fontSize = 14.sp
             )
 
-            // -------------------------------------------------
-            // 8.2) Datos del solicitante
-            // -------------------------------------------------
             ApplicantSection(
                 applicant = formData.applicant,
                 showErrors = showErrors,
@@ -208,9 +156,6 @@ fun GenerateFormScreen(
                 sanitizeLetters = { value, max -> value.sanitizeLetters(max) }
             )
 
-            // -------------------------------------------------
-            // 8.3) Contacto del solicitante
-            // -------------------------------------------------
             ContactSection(
                 contact = formData.applicant.contact,
                 email = formData.applicant.contact.email,
@@ -224,9 +169,6 @@ fun GenerateFormScreen(
                 sanitizeDigits = { value, max -> value.sanitizeDigits(max) }
             )
 
-            // -------------------------------------------------
-            // 8.4) Domicilio del solicitante
-            // -------------------------------------------------
             AddressSection(
                 address = formData.applicant.address,
                 showErrors = showErrors,
@@ -246,9 +188,6 @@ fun GenerateFormScreen(
                 sanitizeAlphanumeric = { value, max -> value.sanitizeAlphanumeric(max) }
             )
 
-            // -------------------------------------------------
-            // 8.5) Efectos en el extranjero
-            // -------------------------------------------------
             DestinationSection(
                 destination = formData.destination,
                 onDestinationChange = { newDestination ->
@@ -257,75 +196,6 @@ fun GenerateFormScreen(
                 sanitizeLetters = { value, max -> value.sanitizeLetters(max) }
             )
 
-            // -------------------------------------------------
-            // 8.6) Bloques específicos por certificado
-            // -------------------------------------------------
-            when (formData.certificateType) {
-
-                // 18 - Últimas Voluntades
-                // Requiere datos del fallecido y datos del testamento.
-                CertificateType.LAST_WILL -> {
-                    deceasedCertificateSection(
-                        formData = formData,
-                        showErrors = showErrors,
-                        birthDateTouched = birthDateTouched,
-                        deathDateTouched = deathDateTouched,
-                        birthDateError = birthDateError,
-                        deathDateError = deathDateError,
-                        todayMillis = todayMillis,
-                        requesters = requesters,
-                        onDeceasedChange = { newDeceased ->
-                            viewModel.updateDeceased(newDeceased)
-                        },
-                        onBirthDateTouched = { birthDateTouched = true },
-                        onDeathDateTouched = { deathDateTouched = true }
-                    )
-
-                    LastWillExtraSection(
-                        lastWillExtra = formData.deathRelatedDetails.lastWillExtra,
-                        willDateTouchedOrShowErrors = (willDateTouched || showErrors),
-                        willDateError = willDateError,
-                        todayMillis = todayMillis,
-                        onLastWillExtraChange = { newLastWillExtra ->
-                            viewModel.updateLastWillExtra(newLastWillExtra)
-                        },
-                        onWillDateTouched = { willDateTouched = true },
-                        sanitizeLetters = { value, max -> value.sanitizeLetters(max) }
-                    )
-                }
-
-                // 17 - Antecedentes Penales
-                // De momento pendiente de implementar su bloque específico.
-                CertificateType.CRIMINAL_RECORDS -> {
-                    Text("Certificado 17 - Antecedentes Penales (pendiente)")
-                }
-
-                // 19 - Seguros de cobertura de fallecimiento
-                // Requiere datos del fallecido, pero no datos de testamento.
-                CertificateType.LIFE_INSURANCE -> {
-                    deceasedCertificateSection(
-                        formData = formData,
-                        showErrors = showErrors,
-                        birthDateTouched = birthDateTouched,
-                        deathDateTouched = deathDateTouched,
-                        birthDateError = birthDateError,
-                        deathDateError = deathDateError,
-                        todayMillis = todayMillis,
-                        requesters = requesters,
-                        onDeceasedChange = { newDeceased ->
-                            viewModel.updateDeceased(newDeceased)
-                        },
-                        onBirthDateTouched = { birthDateTouched = true },
-                        onDeathDateTouched = { deathDateTouched = true }
-                    )
-
-                    Text("Certificado 19 - Seguros de cobertura de fallecimiento (pendiente)")
-                }
-            }
-
-            // -------------------------------------------------
-            // 8.7) Firma manuscrita
-            // -------------------------------------------------
             SignatureSection(
                 signature = formData.signature,
                 onSignatureChange = { newSignature ->
@@ -341,9 +211,6 @@ fun GenerateFormScreen(
                 }
             )
 
-            // -------------------------------------------------
-            // 8.8) Lugar y fecha de firma
-            // -------------------------------------------------
             SignatureDateSection(
                 signature = formData.signature,
                 showErrors = showErrors,
@@ -358,9 +225,6 @@ fun GenerateFormScreen(
                 oneYearFromTodayMillis = oneYearFromTodayMillis
             )
 
-            // -------------------------------------------------
-            // 8.9) Pago
-            // -------------------------------------------------
             PaymentSection(
                 payment = formData.payment,
                 showErrors = showErrors,
@@ -371,25 +235,30 @@ fun GenerateFormScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // -------------------------------------------------
-            // 8.10) Botonera final
-            // -------------------------------------------------
             SubmitButtonsSection(
                 navController = navController,
-                isSubmitting = uiState.isSubmitting,
+                isSubmitting = false,
                 onSubmit = {
                     showErrors = true
                     submitAttempt++
 
-                    val signatureBase64 =
-                        signaturePadView?.exportSignatureBase64().orEmpty()
-
-                    viewModel.submit(
-                        context = context,
-                        repository = repository,
-                        signatureBase64 = signatureBase64,
-                        hasSignature = signaturePadView?.hasSignature() == true
-                    )
+                    if (
+                        formData.applicant.name.isNotBlank() &&
+                        formData.applicant.firstSurname.isNotBlank() &&
+                        formData.applicant.documentId.isNotBlank() &&
+                        formData.applicant.address.street.isNotBlank() &&
+                        formData.applicant.address.city.isNotBlank() &&
+                        formData.applicant.address.province.isNotBlank() &&
+                        formData.applicant.address.country.isNotBlank() &&
+                        formData.signature.place.isNotBlank() &&
+                        validationSafe.signatureDateError == null &&
+                        validationSafe.isEmailValid &&
+                        validationSafe.isPostalCodeValid &&
+                        validationSafe.isBankDataValid &&
+                        signaturePadView?.hasSignature() == true
+                    ) {
+                        navController.navigate("certificate_details")
+                    }
                 }
             )
         }

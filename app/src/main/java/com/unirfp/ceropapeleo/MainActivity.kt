@@ -16,6 +16,9 @@ import com.unirfp.ceropapeleo.home.HomeSelectionScreen
 import com.unirfp.ceropapeleo.forms.GenerateFormScreen
 import com.unirfp.ceropapeleo.ui.theme.CeroPapeleoTheme
 import com.unirfp.ceropapeleo.web.MinistryWebViewScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.unirfp.ceropapeleo.forms.CertificateDetailsScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -34,21 +37,38 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = "home" // Ahora la app arranca en la selección
+                        startDestination = "home"
                     ) {
                         // Pantalla de selección inicial
                         composable("home") {
                             HomeSelectionScreen(navController)
                         }
 
-                        // Pantalla del formulario (Ruta vinculada al botón de la Home)
-                        composable("form_ultimas_voluntades") {
-                            GenerateFormScreen(navController)
+                        // Pantalla del formulario reutilizable para 17, 18 y 19
+                        composable(
+                            route = "generate_form/{certificateCode}",
+                            arguments = listOf(
+                                navArgument("certificateCode") {
+                                    type = NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val certificateCode =
+                                backStackEntry.arguments?.getString("certificateCode").orEmpty()
+
+                            GenerateFormScreen(
+                                navController = navController,
+                                certificateCode = certificateCode
+                            )
                         }
 
                         // Pantalla del WebView
                         composable("webview") {
                             MinistryWebViewScreen()
+                        }
+
+                        composable("certificate_details") {
+                            CertificateDetailsScreen(navController = navController)
                         }
                     }
                 }

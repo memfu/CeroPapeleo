@@ -1,12 +1,14 @@
 package com.unirfp.ceropapeleo.model
 
+import com.unirfp.ceropapeleo.model.CertificateType
+
 /**
  * Representa la solicitud completa para generar el formulario oficial.
  * Este modelo agrupa todos los datos recolectados en la UI que el backend
  * inyectará en los campos del PDF del Modelo 790.
  */
 data class GenerateRequest(
-    val certificateType: String = "LAST_WILL",
+    val certificateType: CertificateType = CertificateType.LAST_WILL,
     val applicant: Applicant = Applicant(),
     val destination: Destination = Destination(),
     val payment: Payment = Payment(),
