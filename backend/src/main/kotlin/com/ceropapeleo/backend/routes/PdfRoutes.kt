@@ -16,10 +16,6 @@ import org.slf4j.LoggerFactory
 fun Route.pdfRoutes(pdfService: PdfService) {
     val logger = LoggerFactory.getLogger("PdfRoutes")
 
-    /**
-     * Endpoint: /fill-pdf
-     * Recibe el PDF del WebViewer + los datos del usuario vía Multipart
-     */
     post("/fill-pdf") {
         try {
             val multipart = call.receiveMultipart()
@@ -27,28 +23,22 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             var userDataRaw: String? = null
             var signatureImageBase64: String? = null
 
-            // Abrimos el paquete Multipart
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {
-                        // Captura el archivo PDF físico enviado por Cris
                         if (part.name == "pdf_file") {
                             pdfBytes = part.provider().readRemaining().readByteArray()
-                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
+
+                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes.size} bytes)")
                         }
                     }
                     is PartData.FormItem -> {
-                        // Captura el JSON de datos. Soporta ambos nombres por si acaso.
                         if (part.name == "userData" || part.name == "user_data") {
                             userDataRaw = part.value
                         }
-
-                        // Captura la firma en Base64 enviada desde la app
                         if (part.name == "signature") {
                             signatureImageBase64 = part.value
-                            logger.info(
-                                "🖊️ Firma recibida: ${!signatureImageBase64.isNullOrBlank()} | longitud=${signatureImageBase64?.length ?: 0}"
-                            )
+                            logger.info("🖊️ Firma recibida")
                         }
                     }
                     else -> part.dispose()
@@ -56,35 +46,44 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 part.dispose()
             }
 
-            // Validaciones de seguridad
             if (pdfBytes == null || userDataRaw == null) {
-                logger.error("❌ Petición incompleta: falta PDF o datos")
-                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o el campo userData")
+                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o datos")
             }
 
-            // Procesamiento
-            val userData: Map<String, String> = Json.decodeFromString(userDataRaw!!)
-
-            // Comprobando como se generan los datos
-            println("========== USER DATA RECIBIDA ==========")
-            userData.forEach { (key, value) ->
-                println("KEY = $key | VALUE = $value")
-            }
-            println("========================================")
-
+            val userData: Map<String, String> = Json.decodeFromString(userDataRaw)
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
-            // Rellenamos el PDF físico que nos ha llegado desde el móvil
             val pdfResult = pdfService.fillPdfForm(
-                pdfBytes!!.inputStream(),
+                pdfBytes.inputStream(),
                 translatedData,
                 signatureImageBase64
             )
 
-            logger.info("✅ PDF con número único rellenado con éxito")
+            logger.info("✅ PDF rellenado con éxito")
 
-            // Respuesta binaria para que el móvil lo guarde
-            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"Modelo790_Final.pdf\"")
+            val s3Service = com.ceropapeleo.backend.services.S3Service()
+            val dynamoService = com.ceropapeleo.backend.services.DynamoService()
+
+            val dniUsuario = userData["documentId"] ?: userData["dni"] ?: "anonimo"
+            val nombreArchivo = "790_${dniUsuario}_${System.currentTimeMillis()}.pdf"
+
+            try {
+                val urlPublica = s3Service.uploadPdf(nombreArchivo, pdfResult)
+                if (urlPublica != null) {
+                    logger.info("☁️ [S3] PDF subido: $urlPublica")
+                    call.response.header("X-Cloud-URL", urlPublica)
+
+                    dynamoService.saveTramite(
+                        dni = dniUsuario,
+                        s3Url = urlPublica,
+                        tramiteTipo = "Modelo 790 - Tasa"
+                    )
+                }
+            } catch (e: Exception) {
+                logger.error("⚠️ [AWS] Fallo en la nube (pero seguimos): ${e.message}")
+            }
+
+            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$nombreArchivo\"")
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 
         } catch (e: Exception) {
