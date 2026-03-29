@@ -10,25 +10,37 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.routing.*
 import org.slf4j.LoggerFactory
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
 
 fun main() {
+    println("☕ Iniciando pre-calentamiento de motores PDF...")
+
+    try {
+        // Al llamar a PDType1Font con el Enum directo, PDFBox
+        // se ve obligado a escanear todo el sistema de archivos.
+        PDType1Font(FontName.HELVETICA)
+
+        println("✅ Motores PDF listos. Cache de fuentes sincronizada.")
+    } catch (_: Exception) {
+        println("ℹ️  Escaneo de fuentes finalizado.")
+    }
+
+    // ARRANQUE DEL SERVIDOR
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
 fun Application.module() {
     val logger = LoggerFactory.getLogger("Application")
 
-    // 1. Plugins: Configuración de JSON y Logs
     install(ContentNegotiation) { json() }
     install(CallLogging)
 
-    // 2. Dependencias: Instanciamos el servicio (el de la carpeta 'services' con S)
     val pdfService = PdfService()
 
-    // 3. Rutas: Conectamos los módulos de endpoints
     routing {
         pdfRoutes(pdfService)
     }
 
-    logger.info("🚀 Backend de CeroPapeleo arrancado correctamente")
+    logger.info("🚀 Backend de CeroPapeleo escuchando peticiones en el puerto 8080")
 }

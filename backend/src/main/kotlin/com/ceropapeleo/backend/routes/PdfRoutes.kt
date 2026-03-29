@@ -2,13 +2,15 @@ package com.ceropapeleo.backend.routes
 
 import com.ceropapeleo.backend.logic.PdfMapper
 import com.ceropapeleo.backend.services.PdfService
+import com.ceropapeleo.backend.services.S3Service
+import com.ceropapeleo.backend.services.DynamoService
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.launch
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -23,22 +25,22 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             var userDataRaw: String? = null
             var signatureImageBase64: String? = null
 
+            // Procesamiento de los datos recibidos (Multipart)
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {
                         if (part.name == "pdf_file") {
                             pdfBytes = part.provider().readRemaining().readByteArray()
-
                             logger.info("📄 PDF recibido (Tamaño: ${pdfBytes.size} bytes)")
                         }
                     }
                     is PartData.FormItem -> {
-                        if (part.name == "userData" || part.name == "user_data") {
-                            userDataRaw = part.value
-                        }
-                        if (part.name == "signature") {
-                            signatureImageBase64 = part.value
-                            logger.info("🖊️ Firma recibida")
+                        when (part.name) {
+                            "userData", "user_data" -> userDataRaw = part.value
+                            "signature" -> {
+                                signatureImageBase64 = part.value
+                                logger.info("🖊️ Firma recibida")
+                            }
                         }
                     }
                     else -> part.dispose()
@@ -50,6 +52,7 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o datos")
             }
 
+            // Lógica de rellenado del PDF
             val userData: Map<String, String> = Json.decodeFromString(userDataRaw)
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
@@ -59,30 +62,41 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 signatureImageBase64
             )
 
-            logger.info("✅ PDF rellenado con éxito")
+            logger.info("✅ PDF rellenado con éxito localmente")
 
-            val s3Service = com.ceropapeleo.backend.services.S3Service()
-            val dynamoService = com.ceropapeleo.backend.services.DynamoService()
-
+            // Preparar metadatos
             val dniUsuario = userData["documentId"] ?: userData["dni"] ?: "anonimo"
-            val nombreArchivo = "790_${dniUsuario}_${System.currentTimeMillis()}.pdf"
+            val nombreArchivo = "790_${dniUsuario}.pdf"
 
-            try {
-                val urlPublica = s3Service.uploadPdf(nombreArchivo, pdfResult)
-                if (urlPublica != null) {
-                    logger.info("☁️ [S3] PDF subido: $urlPublica")
-                    call.response.header("X-Cloud-URL", urlPublica)
+            // Tareas pesadas de AWS en SEGUNDO PLANO
+            // Usamos el scope de la aplicación para que la tarea no se muera al responder a la App
+            val appScope = call.application
+            appScope.launch {
+                try {
+                    logger.info("⏳ [Background] Iniciando proceso en la nube para DNI: $dniUsuario")
 
-                    dynamoService.saveTramite(
-                        dni = dniUsuario,
-                        s3Url = urlPublica,
-                        tramiteTipo = "Modelo 790 - Tasa"
-                    )
+                    // Subida a S3
+                    val urlPublica = S3Service.uploadPdf(nombreArchivo, pdfResult)
+
+                    if (urlPublica != null) {
+                        logger.info("☁️ [Background] S3 OK: $urlPublica")
+
+                        // Guardado en DynamoDB
+                        DynamoService.saveTramite(
+                            dni = dniUsuario,
+                            s3Url = urlPublica,
+                            tramiteTipo = "Modelo 790 - Tasa"
+                        )
+                        logger.info("🗄️ [Background] DynamoDB OK. Registro completado.")
+                    }
+                } catch (e: Exception) {
+                    logger.error("⚠️ [Background] Error en proceso AWS: ${e.message}")
                 }
-            } catch (e: Exception) {
-                logger.error("⚠️ [AWS] Fallo en la nube (pero seguimos): ${e.message}")
             }
 
+            // RESPUESTA INMEDIATA A LA APP
+            // la App recibe el PDF y el usuario ya lo está viendo
+            // el servidor sigue trabajando con AWS en segundo plano.
             call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$nombreArchivo\"")
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 

@@ -14,21 +14,27 @@ group = "com.ceropapeleo.backend"
 version = "1.0.0"
 
 dependencies {
+    // Logs
+    implementation("ch.qos.logback:logback-classic:1.6.0")
+    implementation("ch.qos.logback:logback-core:1.6.0")
+
+    constraints {
+        implementation("ch.qos.logback:logback-core:1.6.0") {
+            because("Corrige vulnerabilidades críticas CVE-2025-11226 y CVE-2026-1225")
+        }
+    }
+
     // Núcleo de Ktor y Servidor Netty
     implementation("io.ktor:ktor-server-core-jvm")
     implementation("io.ktor:ktor-server-netty-jvm")
+    implementation("io.ktor:ktor-server-call-logging-jvm")
 
-    // JSON y Serialización (Para hablar con la App Android)
+    // JSON y Serialización
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
 
-    // PARCHE DE SEGURIDAD: Forzamos versión moderna de GSON para evitar warnings
+    // PARCHE DE SEGURIDAD: Forzamos versión moderna de GSON
     implementation("com.google.code.gson:gson:2.10.1")
-
-    // Logs
-    implementation("io.ktor:ktor-server-call-logging-jvm")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
-    implementation("ch.qos.logback:logback-core:1.5.18")
 
     // Motor de generación del PDF
     implementation("org.apache.pdfbox:pdfbox:3.0.1")
@@ -36,9 +42,9 @@ dependencies {
     // Comunicación y Asincronía
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0") // Versión estándar para Backend
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 
-    // PARCHE DE SEGURIDAD: Actualizamos el motor de red para evitar fugas de información
+    // PARCHE DE SEGURIDAD: Motor de red
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okio:okio:3.6.0")
 
@@ -48,7 +54,7 @@ dependencies {
 }
 
 application {
-    // Esta ruta debe coincidir exactamente con el paquete de tu Application.kt
+    // Esta ruta debe coincidir exactamente con el paquete de la Application.kt
     mainClass.set("com.ceropapeleo.backend.ApplicationKt")
 }
 
