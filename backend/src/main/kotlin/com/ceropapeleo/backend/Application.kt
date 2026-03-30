@@ -17,17 +17,15 @@ fun main() {
     println("☕ Iniciando pre-calentamiento de motores PDF...")
 
     try {
-        // Al llamar a PDType1Font con el Enum directo, PDFBox
-        // se ve obligado a escanear todo el sistema de archivos.
         PDType1Font(FontName.HELVETICA)
-
         println("✅ Motores PDF listos. Cache de fuentes sincronizada.")
     } catch (_: Exception) {
         println("ℹ️  Escaneo de fuentes finalizado.")
     }
 
-    // ARRANQUE DEL SERVIDOR
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module).start(wait = true)
+    val port = System.getenv("PORT")?.toInt() ?: 8080
+
+    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
 fun Application.module() {

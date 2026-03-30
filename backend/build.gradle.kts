@@ -1,26 +1,21 @@
 plugins {
-    // Hereda la versión de Kotlin del proyecto raíz (CeroPapeleo)
     kotlin("jvm")
-
-    // Definimos explícitamente la serialización con su ID completo
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
-
-    // Plugin de Ktor para empaquetar y ejecutar el servidor
     id("io.ktor.plugin") version "3.0.0"
-
+    // AÑADIDO: Plugin para generar el archivo ejecutable para AWS
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "com.ceropapeleo.backend"
 version = "1.0.0"
 
 dependencies {
-    // Logs
-    implementation("ch.qos.logback:logback-classic:1.6.0")
-    implementation("ch.qos.logback:logback-core:1.6.0")
-
+    // Logs (con parches de seguridad)
+    implementation("ch.qos.logback:logback-classic:1.5.12")
+    implementation("ch.qos.logback:logback-core:1.5.12")
     constraints {
-        implementation("ch.qos.logback:logback-core:1.6.0") {
-            because("Corrige vulnerabilidades críticas CVE-2025-11226 y CVE-2026-1225")
+        implementation("ch.qos.logback:logback-core:1.5.12") {
+            because("Corrige vulnerabilidades críticas y es la versión estable más reciente en Maven Central")
         }
     }
 
@@ -33,7 +28,7 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
 
-    // PARCHE DE SEGURIDAD: Forzamos versión moderna de GSON
+    // PARCHE DE SEGURIDAD: GSON
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Motor de generación del PDF
@@ -54,15 +49,23 @@ dependencies {
 }
 
 application {
-    // Esta ruta debe coincidir exactamente con el paquete de la Application.kt
+    // Ruta confirmada según tu paquete
     mainClass.set("com.ceropapeleo.backend.ApplicationKt")
 }
 
 kotlin {
-    jvmToolchain(21) // Esto obliga a Kotlin a usar Java 21
+    jvmToolchain(21)
 }
 
 tasks.withType<JavaCompile> {
-    targetCompatibility = "21" // Esto obliga a Java a usar Java 21
+    targetCompatibility = "21"
     sourceCompatibility = "21"
+}
+
+// AÑADIDO: Configuración específica para crear el JAR de Elastic Beanstalk
+tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
+    archiveFileName.set("ceropapeleo-backend-all.jar")
+    manifest {
+        attributes["Main-Class"] = "com.ceropapeleo.backend.ApplicationKt"
+    }
 }

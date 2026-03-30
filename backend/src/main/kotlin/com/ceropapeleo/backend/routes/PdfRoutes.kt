@@ -18,6 +18,12 @@ import org.slf4j.LoggerFactory
 fun Route.pdfRoutes(pdfService: PdfService) {
     val logger = LoggerFactory.getLogger("PdfRoutes")
 
+    // 1. RUTA DE PRUEBA: Para ver en el navegador y evitar el 404
+    get("/") {
+        call.respondText("🚀 Backend de CeroPapeleo funcionando en AWS correctamente", ContentType.Text.Plain)
+    }
+
+    // 2. RUTA PRINCIPAL: Rellenado de PDF y subida a AWS
     post("/fill-pdf") {
         try {
             val multipart = call.receiveMultipart()
@@ -31,7 +37,7 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                     is PartData.FileItem -> {
                         if (part.name == "pdf_file") {
                             pdfBytes = part.provider().readRemaining().readByteArray()
-                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes.size} bytes)")
+                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
                         }
                     }
                     is PartData.FormItem -> {
@@ -49,39 +55,38 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             }
 
             if (pdfBytes == null || userDataRaw == null) {
-                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o datos")
+                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o los datos del usuario")
             }
 
             // Lógica de rellenado del PDF
-            val userData: Map<String, String> = Json.decodeFromString(userDataRaw)
+            val userData: Map<String, String> = Json.decodeFromString(userDataRaw!!)
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
             val pdfResult = pdfService.fillPdfForm(
-                pdfBytes.inputStream(),
+                pdfBytes!!.inputStream(),
                 translatedData,
                 signatureImageBase64
             )
 
             logger.info("✅ PDF rellenado con éxito localmente")
 
-            // Preparar metadatos
+            // Preparar metadatos para AWS
             val dniUsuario = userData["documentId"] ?: userData["dni"] ?: "anonimo"
-            val nombreArchivo = "790_${dniUsuario}.pdf"
+            val nombreArchivo = "790_${dniUsuario}_${System.currentTimeMillis()}.pdf"
 
-            // Tareas pesadas de AWS en SEGUNDO PLANO
-            // Usamos el scope de la aplicación para que la tarea no se muera al responder a la App
+            // Tareas de AWS en SEGUNDO PLANO (S3 y DynamoDB)
             val appScope = call.application
             appScope.launch {
                 try {
                     logger.info("⏳ [Background] Iniciando proceso en la nube para DNI: $dniUsuario")
 
-                    // Subida a S3
+                    // 1. Subida a S3
                     val urlPublica = S3Service.uploadPdf(nombreArchivo, pdfResult)
 
                     if (urlPublica != null) {
                         logger.info("☁️ [Background] S3 OK: $urlPublica")
 
-                        // Guardado en DynamoDB
+                        // 2. Guardado en DynamoDB
                         DynamoService.saveTramite(
                             dni = dniUsuario,
                             s3Url = urlPublica,
@@ -94,9 +99,7 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 }
             }
 
-            // RESPUESTA INMEDIATA A LA APP
-            // la App recibe el PDF y el usuario ya lo está viendo
-            // el servidor sigue trabajando con AWS en segundo plano.
+            // RESPUESTA INMEDIATA AL MÓVIL (Envío del archivo rellenado)
             call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$nombreArchivo\"")
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 
