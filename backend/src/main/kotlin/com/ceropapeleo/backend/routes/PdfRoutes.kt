@@ -18,12 +18,13 @@ import org.slf4j.LoggerFactory
 fun Route.pdfRoutes(pdfService: PdfService) {
     val logger = LoggerFactory.getLogger("PdfRoutes")
 
-    // 1. RUTA DE PRUEBA: Para ver en el navegador y evitar el 404
     get("/") {
         call.respondText("🚀 Backend de CeroPapeleo funcionando en AWS correctamente", ContentType.Text.Plain)
     }
+    get("/health") {
+        call.respond(mapOf("status" to "OK", "message" to "Backend funcionando correctamente"))
+    }
 
-    // 2. RUTA PRINCIPAL: Rellenado de PDF y subida a AWS
     post("/fill-pdf") {
         try {
             val multipart = call.receiveMultipart()
@@ -31,13 +32,12 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             var userDataRaw: String? = null
             var signatureImageBase64: String? = null
 
-            // Procesamiento de los datos recibidos (Multipart)
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {
                         if (part.name == "pdf_file") {
                             pdfBytes = part.provider().readRemaining().readByteArray()
-                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
+                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes.size} bytes)")
                         }
                     }
                     is PartData.FormItem -> {
@@ -58,35 +58,53 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o los datos del usuario")
             }
 
-            // Lógica de rellenado del PDF
-            val userData: Map<String, String> = Json.decodeFromString(userDataRaw!!)
+            val userData: Map<String, String> = Json.decodeFromString(userDataRaw)
+
+            // FIX TC-02: Validación de documentId obligatorio
+            val dniUsuario = userData["documentId"] ?: userData["dni"]
+            if (dniUsuario.isNullOrBlank()) {
+                return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    "El campo documentId es obligatorio"
+                )
+            }
+
+            // FIX TC-03: Validación condicional para trámite de defunción
+            val isLastWill = userData["18 Últimas voluntades"] == "On"
+            val isLifeInsurance = userData["19 Contrato de seguros de cobertura de fallecimiento"] == "On"
+            if (isLastWill || isLifeInsurance) {
+                val deceasedName = userData["deceasedName"]
+                val deceasedSurname1 = userData["deceasedSurname1"]
+                if (deceasedName.isNullOrBlank() && deceasedSurname1.isNullOrBlank()) {
+                    return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        "Para trámites de defunción es obligatorio el nombre o apellido del fallecido"
+                    )
+                }
+            }
+
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
             val pdfResult = pdfService.fillPdfForm(
-                pdfBytes!!.inputStream(),
+                pdfBytes.inputStream(),
                 translatedData,
                 signatureImageBase64
             )
 
             logger.info("✅ PDF rellenado con éxito localmente")
 
-            // Preparar metadatos para AWS
-            val dniUsuario = userData["documentId"] ?: userData["dni"] ?: "anonimo"
             val nombreArchivo = "790_${dniUsuario}_${System.currentTimeMillis()}.pdf"
 
-            // Tareas de AWS en SEGUNDO PLANO (S3 y DynamoDB)
             val appScope = call.application
             appScope.launch {
                 try {
                     logger.info("⏳ [Background] Iniciando proceso en la nube para DNI: $dniUsuario")
 
-                    // 1. Subida a S3
                     val urlPublica = S3Service.uploadPdf(nombreArchivo, pdfResult)
 
                     if (urlPublica != null) {
                         logger.info("☁️ [Background] S3 OK: $urlPublica")
 
-                        // 2. Guardado en DynamoDB
                         DynamoService.saveTramite(
                             dni = dniUsuario,
                             s3Url = urlPublica,
@@ -99,7 +117,6 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 }
             }
 
-            // RESPUESTA INMEDIATA AL MÓVIL (Envío del archivo rellenado)
             call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$nombreArchivo\"")
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 
