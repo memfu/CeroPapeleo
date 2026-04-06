@@ -2,13 +2,15 @@ package com.ceropapeleo.backend.routes
 
 import com.ceropapeleo.backend.logic.PdfMapper
 import com.ceropapeleo.backend.services.PdfService
+import com.ceropapeleo.backend.services.S3Service
+import com.ceropapeleo.backend.services.DynamoService
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.utils.io.readRemaining
+import kotlinx.coroutines.launch
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -16,10 +18,13 @@ import org.slf4j.LoggerFactory
 fun Route.pdfRoutes(pdfService: PdfService) {
     val logger = LoggerFactory.getLogger("PdfRoutes")
 
-    /**
-     * Endpoint: /fill-pdf
-     * Recibe el PDF del WebViewer + los datos del usuario vía Multipart
-     */
+    get("/") {
+        call.respondText("🚀 Backend de CeroPapeleo funcionando en AWS correctamente", ContentType.Text.Plain)
+    }
+    get("/health") {
+        call.respond(mapOf("status" to "OK", "message" to "Backend funcionando correctamente"))
+    }
+
     post("/fill-pdf") {
         try {
             val multipart = call.receiveMultipart()
@@ -27,28 +32,21 @@ fun Route.pdfRoutes(pdfService: PdfService) {
             var userDataRaw: String? = null
             var signatureImageBase64: String? = null
 
-            // Abrimos el paquete Multipart
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {
-                        // Captura el archivo PDF físico enviado por Cris
                         if (part.name == "pdf_file") {
                             pdfBytes = part.provider().readRemaining().readByteArray()
-                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes?.size} bytes)")
+                            logger.info("📄 PDF recibido (Tamaño: ${pdfBytes.size} bytes)")
                         }
                     }
                     is PartData.FormItem -> {
-                        // Captura el JSON de datos. Soporta ambos nombres por si acaso.
-                        if (part.name == "userData" || part.name == "user_data") {
-                            userDataRaw = part.value
-                        }
-
-                        // Captura la firma en Base64 enviada desde la app
-                        if (part.name == "signature") {
-                            signatureImageBase64 = part.value
-                            logger.info(
-                                "🖊️ Firma recibida: ${!signatureImageBase64.isNullOrBlank()} | longitud=${signatureImageBase64?.length ?: 0}"
-                            )
+                        when (part.name) {
+                            "userData", "user_data" -> userDataRaw = part.value
+                            "signature" -> {
+                                signatureImageBase64 = part.value
+                                logger.info("🖊️ Firma recibida")
+                            }
                         }
                     }
                     else -> part.dispose()
@@ -56,35 +54,70 @@ fun Route.pdfRoutes(pdfService: PdfService) {
                 part.dispose()
             }
 
-            // Validaciones de seguridad
             if (pdfBytes == null || userDataRaw == null) {
-                logger.error("❌ Petición incompleta: falta PDF o datos")
-                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o el campo userData")
+                return@post call.respond(HttpStatusCode.BadRequest, "Falta el PDF o los datos del usuario")
             }
 
-            // Procesamiento
-            val userData: Map<String, String> = Json.decodeFromString(userDataRaw!!)
+            val userData: Map<String, String> = Json.decodeFromString(userDataRaw)
 
-            // Comprobando como se generan los datos
-            println("========== USER DATA RECIBIDA ==========")
-            userData.forEach { (key, value) ->
-                println("KEY = $key | VALUE = $value")
+            // FIX TC-02: Validación de documentId obligatorio
+            val dniUsuario = userData["documentId"] ?: userData["dni"]
+            if (dniUsuario.isNullOrBlank()) {
+                return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    "El campo documentId es obligatorio"
+                )
             }
-            println("========================================")
+
+            // FIX TC-03: Validación condicional para trámite de defunción
+            val isLastWill = userData["18 Últimas voluntades"] == "On"
+            val isLifeInsurance = userData["19 Contrato de seguros de cobertura de fallecimiento"] == "On"
+            if (isLastWill || isLifeInsurance) {
+                val deceasedName = userData["deceasedName"]
+                val deceasedSurname1 = userData["deceasedSurname1"]
+                if (deceasedName.isNullOrBlank() && deceasedSurname1.isNullOrBlank()) {
+                    return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        "Para trámites de defunción es obligatorio el nombre o apellido del fallecido"
+                    )
+                }
+            }
 
             val translatedData = PdfMapper.transformToPdfFields(userData)
 
-            // Rellenamos el PDF físico que nos ha llegado desde el móvil
             val pdfResult = pdfService.fillPdfForm(
-                pdfBytes!!.inputStream(),
+                pdfBytes.inputStream(),
                 translatedData,
                 signatureImageBase64
             )
 
-            logger.info("✅ PDF con número único rellenado con éxito")
+            logger.info("✅ PDF rellenado con éxito localmente")
 
-            // Respuesta binaria para que el móvil lo guarde
-            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"Modelo790_Final.pdf\"")
+            val nombreArchivo = "790_${dniUsuario}_${System.currentTimeMillis()}.pdf"
+
+            val appScope = call.application
+            appScope.launch {
+                try {
+                    logger.info("⏳ [Background] Iniciando proceso en la nube para DNI: $dniUsuario")
+
+                    val urlPublica = S3Service.uploadPdf(nombreArchivo, pdfResult)
+
+                    if (urlPublica != null) {
+                        logger.info("☁️ [Background] S3 OK: $urlPublica")
+
+                        DynamoService.saveTramite(
+                            dni = dniUsuario,
+                            s3Url = urlPublica,
+                            tramiteTipo = "Modelo 790 - Tasa"
+                        )
+                        logger.info("🗄️ [Background] DynamoDB OK. Registro completado.")
+                    }
+                } catch (e: Exception) {
+                    logger.error("⚠️ [Background] Error en proceso AWS: ${e.message}")
+                }
+            }
+
+            call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"$nombreArchivo\"")
             call.respondBytes(pdfResult, ContentType.Application.Pdf, HttpStatusCode.OK)
 
         } catch (e: Exception) {
