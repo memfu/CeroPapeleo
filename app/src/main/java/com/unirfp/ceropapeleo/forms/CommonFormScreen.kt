@@ -2,11 +2,13 @@
 
 package com.unirfp.ceropapeleo.forms
 
+import android.widget.Button
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -39,6 +41,9 @@ import com.unirfp.ceropapeleo.forms.utils.sanitizeLetters
 import com.unirfp.ceropapeleo.forms.validation.FormValidator
 import com.unirfp.ceropapeleo.utils.DownloadUtils
 import kotlinx.coroutines.delay
+import androidx.compose.material3.Button
+import com.unirfp.ceropapeleo.BuildConfig
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,6 +141,17 @@ fun CommonFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
+            // Botón de rellenado de DEMO
+
+            if (BuildConfig.DEBUG) {
+                Button(
+                    onClick = { viewModel.fillDemoData() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("RELLENAR DEMO")
+                }
+            }
 
             ApplicantSection(
                 applicant = formData.applicant,

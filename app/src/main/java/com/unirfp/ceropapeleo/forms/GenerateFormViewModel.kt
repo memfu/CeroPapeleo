@@ -294,4 +294,82 @@ class GenerateFormViewModel : ViewModel() {
     private fun updateForm(newForm: GenerateRequest) {
         uiState = uiState.copy(form = newForm)
     }
+
+    fun fillDemoData() {
+        val currentType = uiState.form.certificateType
+
+        val demoForm = GenerateRequest(
+            certificateType = currentType,
+            applicant = Applicant(
+                name = "María",
+                firstSurname = "García",
+                secondSurname = "López",
+                documentId = "12345678Z",
+                contact = Contact(
+                    mobilePhone = "600123456",
+                    email = "maria.garcia@email.com"
+                ),
+                address = Address(
+                    street = "Calle Mayor",
+                    number = "12",
+                    floor = "2",
+                    door = "B",
+                    postalCode = "28013",
+                    city = "Madrid",
+                    province = "Madrid",
+                    country = "España"
+                )
+            ),
+            destination = Destination(
+                country = "España",
+                authorityOrEntity = "Administración pública"
+            ),
+            criminalRecordsDetails = CriminalRecordsDetails(
+                subjectDocumentId = "12345678Z",
+                subjectFirstSurnameOrBusinessName = "García",
+                subjectSecondSurname = "López",
+                subjectName = "María",
+                birthDate = "15/03/1990",
+                birthCity = "Madrid",
+                birthProvinceOrCountry = "Madrid",
+                nationalityCountry = "España",
+                fatherName = "Antonio",
+                motherName = "Carmen",
+                purpose = "Trámite administrativo"
+            ),
+            deathRelatedDetails = uiState.form.deathRelatedDetails.copy(
+                deceased = Deceased(
+                    documentId = "87654321X",
+                    firstSurname = "Fernández",
+                    secondSurname = "Martín",
+                    name = "José",
+                    birthDate = "10/02/1940",
+                    birthCity = "Sevilla",
+                    deathDate = "20/01/2024",
+                    deathCity = "Madrid"
+                ),
+                lastWillExtra = LastWillExtra(
+                    willDate = "15/06/2020",
+                    notary = "Luis Martínez",
+                    grantPlace = "Madrid",
+                    spousesFullName = "Carmen López"
+                )
+            ),
+            signature = Signature(
+                place = "Madrid",
+                date = "03/04/2026",
+                postalDeliveryAuthorized = false,
+                imageBase64 = ""
+            ),
+            payment = Payment(
+                paymentMethod = "CASH",
+                amountEur = 3.86
+            )
+        )
+
+        uiState = uiState.copy(
+            form = demoForm,
+            validation = null
+        )
+    }
 }
