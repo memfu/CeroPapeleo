@@ -7,7 +7,8 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     // IMPORTANTE: Mantener el "http://" y la barra "/" al final
-    private const val BASE_URL = "http://ceropapeleo-app-env.eba-xcc72vsf.eu-north-1.elasticbeanstalk.com/"
+    // private const val BASE_URL = "http://ceropapeleo-app-env.eba-xcc72vsf.eu-north-1.elasticbeanstalk.com/"
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
