@@ -324,37 +324,52 @@ class GenerateFormViewModel : ViewModel() {
                 country = "España",
                 authorityOrEntity = "Administración pública"
             ),
-            criminalRecordsDetails = CriminalRecordsDetails(
-                subjectDocumentId = "12345678Z",
-                subjectFirstSurnameOrBusinessName = "García",
-                subjectSecondSurname = "López",
-                subjectName = "María",
-                birthDate = "15/03/1990",
-                birthCity = "Madrid",
-                birthProvinceOrCountry = "Madrid",
-                nationalityCountry = "España",
-                fatherName = "Antonio",
-                motherName = "Carmen",
-                purpose = "Trámite administrativo"
-            ),
-            deathRelatedDetails = uiState.form.deathRelatedDetails.copy(
-                deceased = Deceased(
-                    documentId = "87654321X",
-                    firstSurname = "Fernández",
-                    secondSurname = "Martín",
-                    name = "José",
-                    birthDate = "10/02/1940",
-                    birthCity = "Sevilla",
-                    deathDate = "20/01/2024",
-                    deathCity = "Madrid"
-                ),
-                lastWillExtra = LastWillExtra(
-                    willDate = "15/06/2020",
-                    notary = "Luis Martínez",
-                    grantPlace = "Madrid",
-                    spousesFullName = "Carmen López"
+            criminalRecordsDetails = if (currentType == CertificateType.CRIMINAL_RECORDS) {
+                CriminalRecordsDetails(
+                    subjectDocumentId = "12345678Z",
+                    subjectFirstSurnameOrBusinessName = "García",
+                    subjectSecondSurname = "López",
+                    subjectName = "María",
+                    birthDate = "15/03/1990",
+                    birthCity = "Madrid",
+                    birthProvinceOrCountry = "Madrid",
+                    nationalityCountry = "España",
+                    fatherName = "Antonio",
+                    motherName = "Carmen",
+                    purpose = "Trámite administrativo"
                 )
-            ),
+            } else {
+                CriminalRecordsDetails()
+            },
+            deathRelatedDetails = if (
+                currentType == CertificateType.LAST_WILL ||
+                currentType == CertificateType.LIFE_INSURANCE
+            ) {
+                uiState.form.deathRelatedDetails.copy(
+                    deceased = Deceased(
+                        documentId = "87654321X",
+                        firstSurname = "Fernández",
+                        secondSurname = "Martín",
+                        name = "José",
+                        birthDate = "10/02/1940",
+                        birthCity = "Sevilla",
+                        deathDate = "20/01/2024",
+                        deathCity = "Madrid"
+                    ),
+                    lastWillExtra = if (currentType == CertificateType.LAST_WILL) {
+                        LastWillExtra(
+                            willDate = "15/06/2020",
+                            notary = "Luis Martínez",
+                            grantPlace = "Madrid",
+                            spousesFullName = "Carmen López"
+                        )
+                    } else {
+                        LastWillExtra()
+                    }
+                )
+            } else {
+                uiState.form.deathRelatedDetails
+            },
             signature = Signature(
                 place = "Madrid",
                 date = "03/04/2026",
